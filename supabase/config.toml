@@ -1,0 +1,7 @@
+project_id = "rekrgzcibavcvfgjjvux"
+
+[functions.reverse-geocode]
+verify_jwt = false
+
+[functions.itunes-search]
+verify_jwt = false

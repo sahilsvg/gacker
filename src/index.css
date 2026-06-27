@@ -1,0 +1,132 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 33% 6%;
+    --foreground: 213 31% 95%;
+
+    --card: 220 32% 10%;
+    --card-foreground: 213 31% 95%;
+
+    --popover: 220 32% 10%;
+    --popover-foreground: 213 31% 95%;
+
+    --primary: 142 71% 45%;
+    --primary-foreground: 220 33% 6%;
+
+    --secondary: 220 25% 14%;
+    --secondary-foreground: 213 31% 95%;
+
+    --muted: 220 25% 14%;
+    --muted-foreground: 213 14% 60%;
+
+    --accent: 220 25% 14%;
+    --accent-foreground: 213 31% 95%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 20% 16%;
+    --input: 220 20% 16%;
+    --ring: 142 71% 45%;
+
+    --radius: 0.75rem;
+
+    --clean: 142 71% 45%;
+    --clean-foreground: 220 33% 6%;
+    --clean-glow: 142 71% 45%;
+    --red: 0 84% 60%;
+    --red-foreground: 0 0% 100%;
+    --red-glow: 0 84% 60%;
+  }
+
+  .dark {
+    --background: 220 33% 6%;
+    --foreground: 213 31% 95%;
+    --card: 220 32% 10%;
+    --card-foreground: 213 31% 95%;
+    --popover: 220 32% 10%;
+    --popover-foreground: 213 31% 95%;
+    --primary: 142 71% 45%;
+    --primary-foreground: 220 33% 6%;
+    --secondary: 220 25% 14%;
+    --secondary-foreground: 213 31% 95%;
+    --muted: 220 25% 14%;
+    --muted-foreground: 213 14% 60%;
+    --accent: 220 25% 14%;
+    --accent-foreground: 213 31% 95%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 20% 16%;
+    --input: 220 20% 16%;
+    --ring: 142 71% 45%;
+    --clean: 142 71% 45%;
+    --clean-foreground: 220 33% 6%;
+    --clean-glow: 142 71% 45%;
+    --red: 0 84% 60%;
+    --red-foreground: 0 0% 100%;
+    --red-glow: 0 84% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html, body, #root {
+    height: 100%;
+    overscroll-behavior: none;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
+.font-wordmark {
+  font-family: 'Pinyon Script', cursive;
+}
+
+.font-mono-stats {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Splash */
+@keyframes reveal-lr {
+  0% { clip-path: inset(0 100% 0 0); opacity: 0; }
+  10% { opacity: 1; }
+  100% { clip-path: inset(0 0% 0 0); opacity: 1; }
+}
+.animate-reveal-lr {
+  animation: reveal-lr 1.8s cubic-bezier(0.77, 0, 0.18, 1) both;
+}
+
+@keyframes fade-out {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.animate-fade-out {
+  animation: fade-out 0.5s ease-in forwards;
+}
+
+@keyframes fade-in {
+  0% { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fade-in 0.4s ease-out forwards;
+}
+
+/* Tab bar safe area */
+.tab-bar-height {
+  height: calc(64px + env(safe-area-inset-bottom));
+}
+.tab-bar-padding {
+  padding-bottom: calc(64px + env(safe-area-inset-bottom));
+}
