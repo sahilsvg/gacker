@@ -92,8 +92,17 @@ export const getComments = async (entryId: string): Promise<Comment[]> => {
   return comments.map(c => ({ ...c, profile: profileMap[c.user_id] }));
 };
 
-export const postComment = async (userId: string, entryId: string, body: string) => {
-  await supabase.from('comments').insert({ user_id: userId, entry_id: entryId, body });
+export const postComment = async (userId: string, entryId: string, body: string): Promise<string | null> => {
+  const { error } = await supabase.from('comments').insert({ user_id: userId, entry_id: entryId, body });
+  return error?.message ?? null;
+};
+
+export const getLikes = async (entryId: string): Promise<SearchProfile[]> => {
+  const { data: likes } = await supabase.from('likes').select('user_id').eq('entry_id', entryId);
+  if (!likes || likes.length === 0) return [];
+  const userIds = likes.map(l => l.user_id);
+  const { data: profiles } = await supabase.from('profiles').select('id, name, handle, avatar_url').in('id', userIds);
+  return profiles ?? [];
 };
 
 export const deleteComment = async (commentId: string) => {

@@ -3,6 +3,7 @@ import { Heart, MessageCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toggleLike, FeedItem } from '@/lib/social';
 import CommentsSheet from './CommentsSheet';
+import LikesSheet from './LikesSheet';
 
 interface Props {
   item: FeedItem;
@@ -21,6 +22,7 @@ const Avatar = ({ profile }: { profile: FeedItem['profile'] }) => (
 const FeedCard = ({ item, onProfileTap, onUpdate }: Props) => {
   const { user } = useAuth();
   const [showComments, setShowComments] = useState(false);
+  const [showLikes, setShowLikes] = useState(false);
 
   const [y, m, d] = item.date.split('-').map(Number);
   const dateLabel = new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
@@ -63,28 +65,38 @@ const FeedCard = ({ item, onProfileTap, onUpdate }: Props) => {
         )}
 
         {/* Actions */}
-        <div className="flex items-center gap-4 pt-1 border-t border-border/50 mt-1">
+        <div className="flex items-center gap-4 pt-2 border-t border-border/50 mt-1">
           <button
-            onClick={handleLike}
+            onPointerDown={e => { e.preventDefault(); handleLike(); }}
             className={`flex items-center gap-1.5 text-sm transition-all active:scale-95 ${
               item.iLiked ? 'text-red' : 'text-muted-foreground'
             }`}
           >
             <Heart size={16} fill={item.iLiked ? 'currentColor' : 'none'} />
-            <span className="font-medium">{item.likeCount > 0 ? item.likeCount : ''}</span>
           </button>
+          {item.likeCount > 0 && (
+            <button
+              onPointerDown={e => { e.preventDefault(); setShowLikes(true); }}
+              className="text-sm text-muted-foreground font-medium -ml-3 active:opacity-60"
+            >
+              {item.likeCount}
+            </button>
+          )}
           <button
-            onClick={() => setShowComments(true)}
+            onPointerDown={e => { e.preventDefault(); setShowComments(true); }}
             className="flex items-center gap-1.5 text-sm text-muted-foreground transition-all active:scale-95"
           >
             <MessageCircle size={16} />
-            <span className="font-medium">{item.commentCount > 0 ? item.commentCount : ''}</span>
+            {item.commentCount > 0 && <span className="font-medium">{item.commentCount}</span>}
           </button>
         </div>
       </div>
 
       {showComments && (
         <CommentsSheet entryId={item.id} onClose={() => setShowComments(false)} />
+      )}
+      {showLikes && (
+        <LikesSheet entryId={item.id} onClose={() => setShowLikes(false)} onProfileTap={onProfileTap} />
       )}
     </>
   );
