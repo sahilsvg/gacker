@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# macOS
+.DS_Store
+
+# iOS build artifacts
+ios/App/App/public/
+ios/App/Pods/
+ios/App/App.xcworkspace/xcuserdata/
+*.xcuserstate
+
+# Capacitor generated
+.capacitor/
+
+# Claude
+.claude/
+
+# Logs
+*.log
+npm-debug.log*
