@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { UserPlus, RefreshCw } from 'lucide-react';
+import { UserPlus } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFeed, FeedItem } from '@/lib/social';
 import { supabase } from '@/integrations/supabase/client';
 import FeedCard from '@/components/FeedCard';
 import SearchUsers from '@/components/SearchUsers';
 import UserProfile from '@/pages/UserProfile';
+import PullToRefresh from '@/components/PullToRefresh';
 
 interface Props {
   isActive: boolean;
@@ -70,24 +71,16 @@ const FeedTab = ({ isActive }: Props) => {
 
   return (
     <div className="flex flex-col h-full tab-bar-padding">
-      <div className="flex-1 overflow-y-auto">
+      <PullToRefresh onRefresh={() => load(true)}>
         <div className="flex items-center justify-between px-5 pt-16 pb-4">
           <h1 className="font-wordmark text-5xl text-foreground">The Feed</h1>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => load()}
-              className="p-2 text-muted-foreground active:text-foreground transition-colors"
-            >
-              <RefreshCw size={18} />
-            </button>
-            <button
-              onClick={() => setView('search')}
-              className="flex items-center gap-1.5 px-3 py-2 bg-card border border-border rounded-xl text-sm font-medium text-foreground transition-all active:scale-95"
-            >
-              <UserPlus size={15} />
-              Find Friends
-            </button>
-          </div>
+          <button
+            onClick={() => setView('search')}
+            className="flex items-center gap-1.5 px-3 py-2 bg-card border border-border rounded-xl text-sm font-medium text-foreground transition-all active:scale-95"
+          >
+            <UserPlus size={15} />
+            Find Friends
+          </button>
         </div>
 
         <div className="px-5 pb-6 space-y-3">
@@ -124,7 +117,7 @@ const FeedTab = ({ isActive }: Props) => {
             />
           ))}
         </div>
-      </div>
+      </PullToRefresh>
     </div>
   );
 };
