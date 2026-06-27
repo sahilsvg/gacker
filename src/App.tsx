@@ -67,7 +67,7 @@ const AppShell = () => {
     <div className="flex flex-col h-full animate-fade-in">
       <div className="flex-1 relative overflow-hidden">
         <div className={activeTab === 'log' ? 'block h-full' : 'hidden'}><LogTab /></div>
-        <div className={activeTab === 'feed' ? 'block h-full' : 'hidden'}><FeedTab /></div>
+        <div className={activeTab === 'feed' ? 'block h-full' : 'hidden'}><FeedTab isActive={activeTab === 'feed'} /></div>
         <div className={activeTab === 'ganalytics' ? 'block h-full' : 'hidden'}><GanalyticsTab /></div>
         <div className={activeTab === 'profile' ? 'block h-full' : 'hidden'}><ProfileTab /></div>
       </div>

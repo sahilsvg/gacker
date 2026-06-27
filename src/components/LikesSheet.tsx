@@ -17,9 +17,9 @@ const LikesSheet = ({ entryId, onClose, onProfileTap }: Props) => {
   }, [entryId]);
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end">
+    <div className="fixed inset-0 z-[200] flex flex-col justify-end">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-card rounded-t-3xl flex flex-col" style={{ maxHeight: '60vh', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      <div className="relative bg-card rounded-t-3xl flex flex-col" style={{ maxHeight: '70vh', paddingBottom: 'env(safe-area-inset-bottom)' }}>
 
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <h3 className="font-semibold text-foreground">Liked by</h3>

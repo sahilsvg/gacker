@@ -55,7 +55,7 @@ const CommentsSheet = ({ entryId, onClose }: Props) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end">
+    <div className="fixed inset-0 z-[200] flex flex-col justify-end">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div className="relative bg-card rounded-t-3xl flex flex-col" style={{ maxHeight: '75vh', paddingBottom: 'env(safe-area-inset-bottom)' }}>
 

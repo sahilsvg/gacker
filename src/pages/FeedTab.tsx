@@ -1,27 +1,55 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { UserPlus, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFeed, FeedItem } from '@/lib/social';
+import { supabase } from '@/integrations/supabase/client';
 import FeedCard from '@/components/FeedCard';
 import SearchUsers from '@/components/SearchUsers';
 import UserProfile from '@/pages/UserProfile';
 
-const FeedTab = () => {
+interface Props {
+  isActive: boolean;
+}
+
+const FeedTab = ({ isActive }: Props) => {
   const { user } = useAuth();
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'feed' | 'search' | 'profile'>('feed');
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const loadingRef = useRef(false);
 
-  const load = useCallback(async () => {
-    if (!user) return;
-    setLoading(true);
+  const load = useCallback(async (silent = false) => {
+    if (!user || loadingRef.current) return;
+    loadingRef.current = true;
+    if (!silent) setLoading(true);
     const data = await getFeed(user.id);
     setFeed(data);
     setLoading(false);
+    loadingRef.current = false;
   }, [user]);
 
+  // Initial load
   useEffect(() => { load(); }, [load]);
+
+  // Refresh when tab becomes active
+  useEffect(() => {
+    if (isActive) load(true);
+  }, [isActive]);
+
+  // Realtime subscriptions — refresh feed on any relevant change
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('feed-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'entries' }, () => load(true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'likes' }, () => load(true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, () => load(true))
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user, load]);
 
   const handleProfileTap = (userId: string) => {
     setSelectedUserId(userId);
@@ -33,7 +61,7 @@ const FeedTab = () => {
   };
 
   if (view === 'search') {
-    return <SearchUsers onClose={() => setView('feed')} onProfileTap={handleProfileTap} />;
+    return <SearchUsers onClose={() => { setView('feed'); load(true); }} onProfileTap={handleProfileTap} />;
   }
 
   if (view === 'profile' && selectedUserId) {
@@ -43,11 +71,13 @@ const FeedTab = () => {
   return (
     <div className="flex flex-col h-full tab-bar-padding">
       <div className="flex-1 overflow-y-auto">
-        {/* Header */}
         <div className="flex items-center justify-between px-5 pt-16 pb-4">
           <h1 className="font-wordmark text-5xl text-foreground">The Feed</h1>
           <div className="flex items-center gap-2">
-            <button onClick={load} className="p-2 text-muted-foreground active:text-foreground transition-colors">
+            <button
+              onClick={() => load()}
+              className="p-2 text-muted-foreground active:text-foreground transition-colors"
+            >
               <RefreshCw size={18} />
             </button>
             <button
@@ -60,7 +90,6 @@ const FeedTab = () => {
           </div>
         </div>
 
-        {/* Feed */}
         <div className="px-5 pb-6 space-y-3">
           {loading && (
             <div className="flex items-center justify-center py-16">
