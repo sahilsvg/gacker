@@ -90,7 +90,7 @@ const ProfileSetup = ({ onComplete }: Props) => {
   const ready = name.trim().length > 0 && handle.trim().length > 0;
 
   return (
-    <div className="flex flex-col h-full items-center justify-center px-8" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+    <div className="flex flex-col h-full items-center px-8 pt-24" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 60px)' }}>
       <div className="w-full max-w-sm">
         <h2 className="text-2xl font-semibold text-foreground mb-1">Set up your profile</h2>
         <p className="text-muted-foreground text-sm mb-8">This is how your friends will find you.</p>
