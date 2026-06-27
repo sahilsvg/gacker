@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { formatDateKey, saveEntry, getEntries } from '@/lib/storage';
+import { useAuth } from '@/contexts/AuthContext';
+import { formatDateKey, upsertEntry, fetchEntries } from '@/lib/entries';
 
 const triggerCleanConfetti = () => {
   const colors = ['#22C55E', '#16a34a', '#86efac', '#ffffff'];
@@ -13,20 +14,29 @@ const triggerCleanConfetti = () => {
 };
 
 const LogTab = () => {
+  const { user } = useAuth();
   const today = new Date();
   const todayKey = formatDateKey(today);
-  const existing = getEntries()[todayKey];
 
-  const [notes, setNotes] = useState(existing?.notes ?? '');
-  const [submitted, setSubmitted] = useState<'clean' | 'red' | null>(
-    existing ? (existing.clean ? 'clean' : 'red') : null
-  );
+  const [notes, setNotes] = useState('');
+  const [submitted, setSubmitted] = useState<'clean' | 'red' | null>(null);
   const [animating, setAnimating] = useState(false);
 
-  const handleLog = (clean: boolean) => {
-    if (animating) return;
+  useEffect(() => {
+    if (!user) return;
+    fetchEntries(user.id).then(entries => {
+      const e = entries[todayKey];
+      if (e) {
+        setSubmitted(e.clean ? 'clean' : 'red');
+        setNotes(e.notes ?? '');
+      }
+    });
+  }, [user]);
+
+  const handleLog = async (clean: boolean) => {
+    if (!user || animating) return;
     setAnimating(true);
-    saveEntry(todayKey, { clean, notes: notes.trim(), timestamp: Date.now() });
+    await upsertEntry(user.id, todayKey, clean, notes.trim());
     setSubmitted(clean ? 'clean' : 'red');
     if (clean) triggerCleanConfetti();
     setTimeout(() => setAnimating(false), 1200);
@@ -38,13 +48,11 @@ const LogTab = () => {
     <div className="flex flex-col h-full tab-bar-padding">
       <div className="flex-1 overflow-y-auto px-5 pt-16 pb-6">
 
-        {/* Header */}
         <div className="mb-8">
           <h1 className="font-wordmark text-5xl text-foreground mb-1">The Gacker</h1>
           <p className="text-muted-foreground text-sm font-medium">{dateLabel}</p>
         </div>
 
-        {/* Status banner if already logged */}
         {submitted && (
           <div className={`rounded-2xl p-4 mb-6 border animate-fade-in ${
             submitted === 'clean'
@@ -60,7 +68,6 @@ const LogTab = () => {
           </div>
         )}
 
-        {/* Notes */}
         <div className="mb-6">
           <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
             Notes <span className="font-normal normal-case">(optional)</span>
@@ -75,7 +82,6 @@ const LogTab = () => {
           />
         </div>
 
-        {/* Log buttons */}
         <div className="space-y-3">
           <button
             onClick={() => handleLog(true)}

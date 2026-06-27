@@ -1,9 +1,18 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { BarChart2 } from 'lucide-react';
-import { getEntries, computeStats } from '@/lib/storage';
+import { useAuth } from '@/contexts/AuthContext';
+import { fetchEntries, computeStats, Entry } from '@/lib/entries';
 
 const GanalyticsTab = () => {
-  const entries = getEntries();
+  const { user } = useAuth();
+  const [entries, setEntries] = useState<Record<string, Entry>>({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    fetchEntries(user.id).then(data => { setEntries(data); setLoading(false); });
+  }, [user]);
+
   const { streak, cleanDays, redDays } = computeStats(entries);
   const total = cleanDays + redDays;
   const fireRate = total > 0 ? Math.round((redDays / total) * 100) : 0;
@@ -17,27 +26,22 @@ const GanalyticsTab = () => {
           <p className="text-muted-foreground text-sm font-medium">Your performance, laid bare.</p>
         </div>
 
-        {/* Stat cards */}
         <div className="grid grid-cols-2 gap-3 mb-6">
-          <div className="bg-card border border-border rounded-2xl p-5">
-            <div className="font-mono-stats text-3xl font-medium text-clean mb-1">{streak}</div>
-            <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Day Streak</div>
-          </div>
-          <div className="bg-card border border-border rounded-2xl p-5">
-            <div className="font-mono-stats text-3xl font-medium text-clean mb-1">{cleanDays}</div>
-            <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Clean Days</div>
-          </div>
-          <div className="bg-card border border-border rounded-2xl p-5">
-            <div className="font-mono-stats text-3xl font-medium text-red mb-1">{redDays}</div>
-            <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Red Days</div>
-          </div>
-          <div className="bg-card border border-border rounded-2xl p-5">
-            <div className="font-mono-stats text-3xl font-medium text-foreground mb-1">{fireRate}%</div>
-            <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Fire Rate</div>
-          </div>
+          {[
+            { value: streak, label: 'Day Streak', color: 'text-clean' },
+            { value: cleanDays, label: 'Clean Days', color: 'text-clean' },
+            { value: redDays, label: 'Red Days', color: 'text-red' },
+            { value: `${fireRate}%`, label: 'Fire Rate', color: 'text-foreground' },
+          ].map(({ value, label, color }) => (
+            <div key={label} className="bg-card border border-border rounded-2xl p-5">
+              <div className={`font-mono-stats text-3xl font-medium mb-1 ${color}`}>
+                {loading ? '—' : value}
+              </div>
+              <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">{label}</div>
+            </div>
+          ))}
         </div>
 
-        {/* Clean rate bar */}
         {total > 0 && (
           <div className="bg-card border border-border rounded-2xl p-5 mb-6">
             <div className="flex justify-between text-xs text-muted-foreground font-medium mb-3">
@@ -46,14 +50,13 @@ const GanalyticsTab = () => {
             </div>
             <div className="h-2 bg-muted rounded-full overflow-hidden">
               <div
-                className="h-full bg-clean rounded-full transition-all"
-                style={{ width: `${total > 0 ? (cleanDays / total) * 100 : 0}%` }}
+                className="h-full bg-clean rounded-full transition-all duration-700"
+                style={{ width: `${(cleanDays / total) * 100}%` }}
               />
             </div>
           </div>
         )}
 
-        {/* Coming soon */}
         <div className="bg-card border border-border rounded-2xl p-5">
           <div className="flex items-center gap-3 mb-3">
             <BarChart2 size={18} className="text-muted-foreground" />
