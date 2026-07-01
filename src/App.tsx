@@ -22,21 +22,26 @@ const AppShell = () => {
   const { user, profile, loading } = useAuth();
   const [splashDone, setSplashDone] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('log');
+  const [resetKeys, setResetKeys] = useState<Record<Tab, number>>({ log: 0, feed: 0, ganalytics: 0, profile: 0 });
   const [authStep, setAuthStep] = useState<AuthStep>('phone');
   const [pendingPhone, setPendingPhone] = useState('');
   const [showWelcome, setShowWelcome] = useState(false);
 
+  const handleTabChange = (tab: Tab) => {
+    if (tab === activeTab) {
+      // Tap the active tab → reset it to root
+      setResetKeys(prev => ({ ...prev, [tab]: prev[tab] + 1 }));
+    } else {
+      setActiveTab(tab);
+    }
+  };
+
   if (!splashDone) return <SplashScreen onComplete={() => setSplashDone(true)} />;
   if (loading) return null;
 
-  // Not logged in → show auth flow
   if (!user) {
     if (authStep === 'phone') {
-      return (
-        <PhoneEntry
-          onCodeSent={phone => { setPendingPhone(phone); setAuthStep('otp'); }}
-        />
-      );
+      return <PhoneEntry onCodeSent={phone => { setPendingPhone(phone); setAuthStep('otp'); }} />;
     }
     if (authStep === 'otp') {
       return (
@@ -52,26 +57,31 @@ const AppShell = () => {
     }
   }
 
-  // Logged in but no profile yet
   if (user && !profile && authStep !== 'welcome') {
     return <ProfileSetup onComplete={() => setShowWelcome(true)} />;
   }
 
-  // Welcome back screen
   if (showWelcome) {
     return <WelcomeBack onDone={() => setShowWelcome(false)} />;
   }
 
-  // Main app
   return (
     <div className="flex flex-col h-full animate-fade-in">
       <div className="flex-1 relative overflow-hidden">
-        <div className={activeTab === 'log' ? 'block h-full' : 'hidden'}><LogTab /></div>
-        <div className={activeTab === 'feed' ? 'block h-full' : 'hidden'}><FeedTab isActive={activeTab === 'feed'} /></div>
-        <div className={activeTab === 'ganalytics' ? 'block h-full' : 'hidden'}><GanalyticsTab /></div>
-        <div className={activeTab === 'profile' ? 'block h-full' : 'hidden'}><ProfileTab /></div>
+        <div className={activeTab === 'log' ? 'block h-full' : 'hidden'}>
+          <LogTab resetKey={resetKeys.log} />
+        </div>
+        <div className={activeTab === 'feed' ? 'block h-full' : 'hidden'}>
+          <FeedTab isActive={activeTab === 'feed'} resetKey={resetKeys.feed} />
+        </div>
+        <div className={activeTab === 'ganalytics' ? 'block h-full' : 'hidden'}>
+          <GanalyticsTab resetKey={resetKeys.ganalytics} />
+        </div>
+        <div className={activeTab === 'profile' ? 'block h-full' : 'hidden'}>
+          <ProfileTab isActive={activeTab === 'profile'} resetKey={resetKeys.profile} />
+        </div>
       </div>
-      <BottomNav active={activeTab} onChange={setActiveTab} />
+      <BottomNav active={activeTab} onChange={handleTabChange} />
     </div>
   );
 };

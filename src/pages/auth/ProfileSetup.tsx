@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Camera } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { validateHandle, validateName, sanitizeHandle, sanitizeName } from '@/lib/validation';
 
 interface Props {
   onComplete: () => void;
@@ -19,14 +20,15 @@ const ProfileSetup = ({ onComplete }: Props) => {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleNameChange = (val: string) => {
-    setName(val);
+    const clean = sanitizeName(val);
+    setName(clean);
     if (!handle || handle === name.toLowerCase().replace(/\s+/g, '')) {
-      setHandle(val.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20));
+      setHandle(sanitizeHandle(clean.toLowerCase().replace(/\s+/g, '')));
     }
   };
 
   const handleHandleChange = (val: string) => {
-    setHandle(val.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20));
+    setHandle(sanitizeHandle(val));
     setHandleTaken(false);
   };
 
@@ -38,7 +40,11 @@ const ProfileSetup = ({ onComplete }: Props) => {
   };
 
   const handleSubmit = async () => {
-    if (!name.trim() || !handle.trim() || !user) return;
+    if (!user) return;
+    const nameErr = validateName(name);
+    const handleErr = validateHandle(handle);
+    if (nameErr) { setError(nameErr); return; }
+    if (handleErr) { setError(handleErr); return; }
     setLoading(true);
     setError('');
 
@@ -87,7 +93,7 @@ const ProfileSetup = ({ onComplete }: Props) => {
     onComplete();
   };
 
-  const ready = name.trim().length > 0 && handle.trim().length > 0;
+  const ready = !validateName(name) && !validateHandle(handle);
 
   return (
     <div className="flex flex-col h-full items-center px-8 pt-24" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 60px)' }}>
@@ -125,7 +131,7 @@ const ProfileSetup = ({ onComplete }: Props) => {
             value={name}
             onChange={e => handleNameChange(e.target.value)}
             placeholder="Your name"
-            maxLength={40}
+            maxLength={20}
             className="w-full bg-card border border-border rounded-2xl px-4 py-3.5 text-foreground font-medium focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
           />
         </div>
@@ -139,7 +145,7 @@ const ProfileSetup = ({ onComplete }: Props) => {
               value={handle}
               onChange={e => handleHandleChange(e.target.value)}
               placeholder="yourhandle"
-              maxLength={20}
+              maxLength={13}
               className="flex-1 bg-transparent text-foreground font-medium focus:outline-none placeholder:text-muted-foreground"
             />
           </div>

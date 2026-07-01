@@ -74,11 +74,21 @@
 @layer base {
   * {
     @apply border-border;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  /* Re-enable selection only where text input is needed */
+  input, textarea {
+    -webkit-user-select: text;
+    user-select: text;
   }
 
   html, body, #root {
     height: 100%;
     overscroll-behavior: none;
+    touch-action: pan-x pan-y;
   }
 
   body {
@@ -125,8 +135,8 @@
 
 /* Tab bar safe area */
 .tab-bar-height {
-  height: calc(64px + env(safe-area-inset-bottom));
+  height: calc(45px + env(safe-area-inset-bottom));
 }
 .tab-bar-padding {
-  padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  padding-bottom: calc(45px + env(safe-area-inset-bottom));
 }

@@ -3,7 +3,7 @@ import { BarChart2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchEntries, computeStats, Entry } from '@/lib/entries';
 
-const GanalyticsTab = () => {
+const GanalyticsTab = ({ resetKey: _ }: { resetKey: number }) => {
   const { user } = useAuth();
   const [entries, setEntries] = useState<Record<string, Entry>>({});
   const [loading, setLoading] = useState(true);
@@ -19,7 +19,7 @@ const GanalyticsTab = () => {
 
   return (
     <div className="flex flex-col h-full tab-bar-padding">
-      <div className="flex-1 overflow-y-auto px-5 pt-16 pb-6">
+      <div className="flex-1 overflow-y-auto px-5 pt-6 pb-6">
 
         <div className="mb-8">
           <h1 className="font-wordmark text-5xl text-foreground mb-1">Ganalytics</h1>

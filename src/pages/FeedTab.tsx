@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { UserPlus } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getFeed, FeedItem } from '@/lib/social';
+import { getFeed, getMyActivity, FeedItem } from '@/lib/social';
 import { supabase } from '@/integrations/supabase/client';
 import FeedCard from '@/components/FeedCard';
 import SearchUsers from '@/components/SearchUsers';
@@ -10,11 +10,16 @@ import PullToRefresh from '@/components/PullToRefresh';
 
 interface Props {
   isActive: boolean;
+  resetKey: number;
 }
 
-const FeedTab = ({ isActive }: Props) => {
+type SubTab = 'friends' | 'mine';
+
+const FeedTab = ({ isActive, resetKey }: Props) => {
   const { user } = useAuth();
-  const [feed, setFeed] = useState<FeedItem[]>([]);
+  const [subTab, setSubTab] = useState<SubTab>('friends');
+  const [friendsFeed, setFriendsFeed] = useState<FeedItem[]>([]);
+  const [myFeed, setMyFeed] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'feed' | 'search' | 'profile'>('feed');
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
@@ -24,31 +29,35 @@ const FeedTab = ({ isActive }: Props) => {
     if (!user || loadingRef.current) return;
     loadingRef.current = true;
     if (!silent) setLoading(true);
-    const data = await getFeed(user.id);
-    setFeed(data);
+    const [friends, mine] = await Promise.all([
+      getFeed(user.id),
+      getMyActivity(user.id),
+    ]);
+    setFriendsFeed(friends);
+    setMyFeed(mine);
     setLoading(false);
     loadingRef.current = false;
   }, [user]);
 
-  // Initial load
   useEffect(() => { load(); }, [load]);
 
-  // Refresh when tab becomes active
   useEffect(() => {
     if (isActive) load(true);
   }, [isActive]);
 
-  // Realtime subscriptions — refresh feed on any relevant change
+  // Reset to root when tab re-tapped
+  useEffect(() => {
+    if (resetKey > 0) { setView('feed'); setSubTab('friends'); }
+  }, [resetKey]);
+
   useEffect(() => {
     if (!user) return;
-
     const channel = supabase
       .channel('feed-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'entries' }, () => load(true))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'likes' }, () => load(true))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, () => load(true))
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, [user, load]);
 
@@ -58,7 +67,8 @@ const FeedTab = ({ isActive }: Props) => {
   };
 
   const handleUpdate = (id: string, iLiked: boolean, likeCount: number) => {
-    setFeed(prev => prev.map(item => item.id === id ? { ...item, iLiked, likeCount } : item));
+    setFriendsFeed(prev => prev.map(item => item.id === id ? { ...item, iLiked, likeCount } : item));
+    setMyFeed(prev => prev.map(item => item.id === id ? { ...item, iLiked, likeCount } : item));
   };
 
   if (view === 'search') {
@@ -69,10 +79,13 @@ const FeedTab = ({ isActive }: Props) => {
     return <UserProfile userId={selectedUserId} onBack={() => setView('feed')} />;
   }
 
+  const activeFeed = subTab === 'friends' ? friendsFeed : myFeed;
+
   return (
     <div className="flex flex-col h-full tab-bar-padding">
       <PullToRefresh onRefresh={() => load(true)}>
-        <div className="flex items-center justify-between px-5 pt-16 pb-4">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-6 pb-3">
           <h1 className="font-wordmark text-5xl text-foreground">The Feed</h1>
           <button
             onClick={() => setView('search')}
@@ -83,14 +96,32 @@ const FeedTab = ({ isActive }: Props) => {
           </button>
         </div>
 
+        {/* Sub-tabs */}
+        <div className="flex px-5 mb-4 gap-1 bg-card border border-border rounded-2xl mx-5 p-1">
+          {(['friends', 'mine'] as SubTab[]).map(tab => (
+            <button
+              key={tab}
+              onPointerDown={e => { e.preventDefault(); setSubTab(tab); }}
+              className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${
+                subTab === tab
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground'
+              }`}
+            >
+              {tab === 'friends' ? 'Friends' : 'My Activity'}
+            </button>
+          ))}
+        </div>
+
+        {/* Content */}
         <div className="px-5 pb-6 space-y-3">
           {loading && (
             <div className="flex items-center justify-center py-16">
-              <span className="text-muted-foreground text-sm">Loading feed…</span>
+              <span className="text-muted-foreground text-sm">Loading…</span>
             </div>
           )}
 
-          {!loading && feed.length === 0 && (
+          {!loading && activeFeed.length === 0 && subTab === 'friends' && (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="w-16 h-16 rounded-full bg-card border border-border flex items-center justify-center mb-5">
                 <UserPlus size={24} className="text-muted-foreground" />
@@ -108,7 +139,16 @@ const FeedTab = ({ isActive }: Props) => {
             </div>
           )}
 
-          {feed.map(item => (
+          {!loading && activeFeed.length === 0 && subTab === 'mine' && (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <h3 className="font-semibold text-foreground mb-2">No entries yet</h3>
+              <p className="text-muted-foreground text-sm max-w-xs leading-relaxed">
+                Log your first day to see it here.
+              </p>
+            </div>
+          )}
+
+          {!loading && activeFeed.map(item => (
             <FeedCard
               key={item.id}
               item={item}

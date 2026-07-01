@@ -26,7 +26,7 @@ const LikesSheet = ({ entryId, onClose, onProfileTap }: Props) => {
           <button onClick={onClose} className="text-muted-foreground p-1"><X size={20} /></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+        <div className="flex-1 overflow-y-auto px-5 pt-2 pb-3 space-y-1">
           {loading && <p className="text-muted-foreground text-sm text-center py-8">Loading…</p>}
           {!loading && likers.length === 0 && (
             <p className="text-muted-foreground text-sm text-center py-8">No likes yet.</p>

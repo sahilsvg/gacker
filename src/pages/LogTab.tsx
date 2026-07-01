@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
+import { ChevronDown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { formatDateKey, upsertEntry, fetchEntries } from '@/lib/entries';
+import { formatDateKey, upsertEntry, fetchEntries, Entry } from '@/lib/entries';
+import SongPicker, { SongSelection } from '@/components/SongPicker';
+import DatePickerSheet from '@/components/DatePickerSheet';
 
 const triggerCleanConfetti = () => {
   const colors = ['#22C55E', '#16a34a', '#86efac', '#ffffff'];
@@ -13,44 +16,83 @@ const triggerCleanConfetti = () => {
   })();
 };
 
-const LogTab = () => {
-  const { user } = useAuth();
+const formatDisplayDate = (dateKey: string) => {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
   const today = new Date();
-  const todayKey = formatDateKey(today);
+  today.setHours(0, 0, 0, 0);
+  date.setHours(0, 0, 0, 0);
+  const isToday = date.getTime() === today.getTime();
+  const label = date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  return isToday ? label : label;
+};
 
+const LogTab = ({ resetKey: _ }: { resetKey: number }) => {
+  const { user } = useAuth();
+  const todayKey = formatDateKey(new Date());
+
+  const [selectedDate, setSelectedDate] = useState(todayKey);
+  const [entries, setEntries] = useState<Record<string, Entry>>({});
   const [notes, setNotes] = useState('');
-  const [submitted, setSubmitted] = useState<'clean' | 'red' | null>(null);
+  const [song, setSong] = useState<SongSelection | null>(null);
   const [animating, setAnimating] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
 
+  // Load all entries for calendar display
   useEffect(() => {
     if (!user) return;
-    fetchEntries(user.id).then(entries => {
-      const e = entries[todayKey];
-      if (e) {
-        setSubmitted(e.clean ? 'clean' : 'red');
-        setNotes(e.notes ?? '');
-      }
-    });
+    fetchEntries(user.id).then(setEntries);
   }, [user]);
+
+  // When selected date changes, populate form with existing entry
+  useEffect(() => {
+    const entry = entries[selectedDate];
+    setNotes(entry?.notes ?? '');
+    setSong(null); // song state can't be restored from DB easily, reset it
+  }, [selectedDate, entries]);
+
+  const existingEntry = entries[selectedDate];
+  const submitted = existingEntry ? (existingEntry.clean ? 'clean' : 'red') : null;
+  const isToday = selectedDate === todayKey;
 
   const handleLog = async (clean: boolean) => {
     if (!user || animating) return;
     setAnimating(true);
-    await upsertEntry(user.id, todayKey, clean, notes.trim());
-    setSubmitted(clean ? 'clean' : 'red');
-    if (clean) triggerCleanConfetti();
+    await upsertEntry(user.id, selectedDate, clean, notes.trim(), null, song);
+    // Refresh entries
+    const updated = await fetchEntries(user.id);
+    setEntries(updated);
+    if (clean && isToday) triggerCleanConfetti();
     setTimeout(() => setAnimating(false), 1200);
   };
 
-  const dateLabel = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const [y, m, d] = selectedDate.split('-').map(Number);
+  const dateObj = new Date(y, m - 1, d);
+  const dateLabel = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
   return (
     <div className="flex flex-col h-full tab-bar-padding">
-      <div className="flex-1 overflow-y-auto px-5 pt-16 pb-6">
+      <div className="flex-1 overflow-y-auto px-5 pt-6 pb-6">
 
         <div className="mb-8">
-          <h1 className="font-wordmark text-5xl text-foreground mb-1">The Gacker</h1>
-          <p className="text-muted-foreground text-sm font-medium">{dateLabel}</p>
+          <h1 className="font-wordmark text-5xl text-foreground mb-3">The Gacker</h1>
+
+          {/* Tappable date selector */}
+          <button
+            onPointerDown={e => { e.preventDefault(); setShowPicker(true); }}
+            className="flex items-center gap-1.5 active:opacity-60 transition-opacity"
+          >
+            <span className="text-muted-foreground text-sm font-medium">{dateLabel}</span>
+            <ChevronDown size={14} className="text-muted-foreground" />
+          </button>
+          {!isToday && (
+            <button
+              onPointerDown={e => { e.preventDefault(); setSelectedDate(todayKey); }}
+              className="mt-1.5 text-xs text-clean font-medium active:opacity-60"
+            >
+              Back to today
+            </button>
+          )}
         </div>
 
         {submitted && (
@@ -68,18 +110,27 @@ const LogTab = () => {
           </div>
         )}
 
-        <div className="mb-6">
-          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
-            Notes <span className="font-normal normal-case">(optional)</span>
-          </label>
-          <textarea
-            value={notes}
-            onChange={e => setNotes(e.target.value)}
-            placeholder="Anything to note about today…"
-            rows={5}
-            maxLength={2000}
-            className="w-full bg-card border border-border rounded-2xl px-4 py-3 text-foreground text-sm resize-none focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
-          />
+        <div className="space-y-4 mb-6">
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
+              Song <span className="font-normal normal-case">(optional)</span>
+            </label>
+            <SongPicker value={song} onChange={setSong} />
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
+              Notes <span className="font-normal normal-case">(optional)</span>
+            </label>
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="Anything to note about today…"
+              rows={4}
+              maxLength={2000}
+              className="w-full bg-card border border-border rounded-2xl px-4 py-3 text-foreground text-sm resize-none focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
+            />
+          </div>
         </div>
 
         <div className="space-y-3">
@@ -100,9 +151,18 @@ const LogTab = () => {
         </div>
 
         <p className="text-center text-xs text-muted-foreground mt-4">
-          Tap again to update today's entry.
+          {isToday ? 'Tap again to update today\'s entry.' : 'Logging for a past date.'}
         </p>
       </div>
+
+      {showPicker && (
+        <DatePickerSheet
+          selected={selectedDate}
+          entries={entries}
+          onSelect={date => setSelectedDate(date)}
+          onClose={() => setShowPicker(false)}
+        />
+      )}
     </div>
   );
 };

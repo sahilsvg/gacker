@@ -41,14 +41,14 @@ const PhoneEntry = ({ onCodeSent }: Props) => {
   };
 
   return (
-    <div className="flex flex-col h-full items-center justify-center px-8" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+    <div className="flex flex-col h-full items-center justify-center px-8">
       <div className="w-full max-w-sm">
         <h1 className="font-wordmark text-6xl text-foreground mb-2 text-center">The Gacker</h1>
         <p className="text-muted-foreground text-sm text-center mb-12">Enter your number to get started.</p>
 
         <div className="mb-2">
           <div className="flex items-center gap-3 bg-card border border-border rounded-2xl px-4 py-4 focus-within:ring-1 focus-within:ring-ring transition-all">
-            <span className="text-foreground font-medium text-lg">🇺🇸 +1</span>
+            <span className="text-foreground font-medium text-lg">US +1</span>
             <div className="w-px h-6 bg-border" />
             <input
               type="tel"

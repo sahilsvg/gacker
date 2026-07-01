@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Heart, MessageCircle } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Heart, MessageCircle, MapPin, Music, Play, Pause } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toggleLike, FeedItem } from '@/lib/social';
 import CommentsSheet from './CommentsSheet';
@@ -23,6 +23,21 @@ const FeedCard = ({ item, onProfileTap, onUpdate }: Props) => {
   const { user } = useAuth();
   const [showComments, setShowComments] = useState(false);
   const [showLikes, setShowLikes] = useState(false);
+  const [songPlaying, setSongPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const toggleSong = () => {
+    if (!item.song_preview_url) return;
+    if (songPlaying) {
+      audioRef.current?.pause();
+      setSongPlaying(false);
+    } else {
+      if (!audioRef.current) audioRef.current = new Audio();
+      audioRef.current.src = item.song_preview_url;
+      audioRef.current.onended = () => setSongPlaying(false);
+      audioRef.current.play().then(() => setSongPlaying(true)).catch(() => {});
+    }
+  };
 
   const [y, m, d] = item.date.split('-').map(Number);
   const dateLabel = new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
@@ -64,6 +79,36 @@ const FeedCard = ({ item, onProfileTap, onUpdate }: Props) => {
           <p className="text-sm text-foreground/80 leading-relaxed mb-3">{item.notes}</p>
         )}
 
+        {/* Song */}
+        {item.song_name && (
+          <div className="flex items-center gap-3 bg-background border border-border/50 rounded-xl px-3 py-2.5 mb-3">
+            {item.song_album_art
+              ? <img src={item.song_album_art} alt="" className="w-9 h-9 rounded-lg object-cover flex-shrink-0" />
+              : <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center flex-shrink-0"><Music size={13} className="text-muted-foreground" /></div>
+            }
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-foreground truncate">{item.song_name}</p>
+              <p className="text-xs text-muted-foreground truncate">{item.song_artist}</p>
+            </div>
+            {item.song_preview_url && (
+              <button
+                onPointerDown={e => { e.preventDefault(); toggleSong(); }}
+                className="w-7 h-7 rounded-full bg-muted flex items-center justify-center flex-shrink-0 active:scale-95 transition-all"
+              >
+                {songPlaying ? <Pause size={11} className="text-foreground" /> : <Play size={11} className="text-foreground ml-0.5" />}
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Location */}
+        {item.location_name && (
+          <div className="flex items-center gap-1.5 mb-3">
+            <MapPin size={11} className="text-muted-foreground flex-shrink-0" />
+            <span className="text-xs text-muted-foreground truncate">{item.location_name}</span>
+          </div>
+        )}
+
         {/* Actions */}
         <div className="flex items-center gap-4 pt-2 border-t border-border/50 mt-1">
           <button
@@ -93,7 +138,7 @@ const FeedCard = ({ item, onProfileTap, onUpdate }: Props) => {
       </div>
 
       {showComments && (
-        <CommentsSheet entryId={item.id} onClose={() => setShowComments(false)} />
+        <CommentsSheet entryId={item.id} onClose={() => setShowComments(false)} onProfileTap={onProfileTap} />
       )}
       {showLikes && (
         <LikesSheet entryId={item.id} onClose={() => setShowLikes(false)} onProfileTap={onProfileTap} />

@@ -6,6 +6,7 @@ import { getComments, postComment, deleteComment, Comment } from '@/lib/social';
 interface Props {
   entryId: string;
   onClose: () => void;
+  onProfileTap: (userId: string) => void;
 }
 
 const Avatar = ({ profile }: { profile: { name: string; avatar_url: string | null } }) => (
@@ -16,7 +17,7 @@ const Avatar = ({ profile }: { profile: { name: string; avatar_url: string | nul
       </div>
 );
 
-const CommentsSheet = ({ entryId, onClose }: Props) => {
+const CommentsSheet = ({ entryId, onClose, onProfileTap }: Props) => {
   const { user } = useAuth();
   const [comments, setComments] = useState<Comment[]>([]);
   const [body, setBody] = useState('');
@@ -64,14 +65,16 @@ const CommentsSheet = ({ entryId, onClose }: Props) => {
           <button onClick={onClose} className="text-muted-foreground p-1"><X size={20} /></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+        <div className="flex-1 overflow-y-auto px-5 pt-3 pb-2 space-y-4">
           {loading && <p className="text-muted-foreground text-sm text-center py-4">Loading…</p>}
           {!loading && comments.length === 0 && (
             <p className="text-muted-foreground text-sm text-center py-8">No comments yet. Be the first.</p>
           )}
           {comments.map(c => (
             <div key={c.id} className="flex gap-3">
-              <Avatar profile={c.profile} />
+              <button onPointerDown={e => { e.preventDefault(); onProfileTap(c.user_id); onClose(); }} className="flex-shrink-0">
+                <Avatar profile={c.profile} />
+              </button>
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline gap-2 mb-0.5">
                   <span className="text-sm font-semibold text-foreground">{c.profile?.name}</span>

@@ -1,9 +1,18 @@
 import { supabase } from '@/integrations/supabase/client';
+import type { LocationValue } from '@/components/LocationPicker';
+import type { SongSelection } from '@/components/SongPicker';
 
 export interface Entry {
   date: string;
   clean: boolean;
   notes: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  location_name?: string | null;
+  song_name?: string | null;
+  song_artist?: string | null;
+  song_album_art?: string | null;
+  song_preview_url?: string | null;
 }
 
 export const formatDateKey = (d: Date): string => {
@@ -16,16 +25,35 @@ export const formatDateKey = (d: Date): string => {
 export const fetchEntries = async (userId: string): Promise<Record<string, Entry>> => {
   const { data } = await supabase
     .from('entries')
-    .select('date, clean, notes')
+    .select('date, clean, notes, latitude, longitude, location_name, song_name, song_artist, song_album_art, song_preview_url')
     .eq('user_id', userId);
   const map: Record<string, Entry> = {};
   (data ?? []).forEach((row: Entry) => { map[row.date] = row; });
   return map;
 };
 
-export const upsertEntry = async (userId: string, date: string, clean: boolean, notes: string) => {
+export const upsertEntry = async (
+  userId: string,
+  date: string,
+  clean: boolean,
+  notes: string,
+  location?: LocationValue | null,
+  song?: SongSelection | null,
+) => {
   await supabase.from('entries').upsert(
-    { user_id: userId, date, clean, notes: notes || null },
+    {
+      user_id: userId,
+      date,
+      clean,
+      notes: notes || null,
+      latitude: location?.lat ?? null,
+      longitude: location?.lng ?? null,
+      location_name: location?.name ?? null,
+      song_name: song?.track.name ?? null,
+      song_artist: song?.track.artist ?? null,
+      song_album_art: song?.track.albumArt ?? null,
+      song_preview_url: song?.track.previewUrl ?? null,
+    },
     { onConflict: 'user_id,date' }
   );
 };
