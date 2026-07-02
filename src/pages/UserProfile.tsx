@@ -54,7 +54,7 @@ const UserProfile = ({ userId, onBack }: Props) => {
   const { streak, cleanDays, redDays } = computeStats(entries);
 
   return (
-    <div className="flex flex-col h-full tab-bar-padding">
+    <div className="flex flex-col h-full tab-bar-padding animate-slide-in-right">
       {/* Nav */}
       <div className="flex items-center gap-3 px-5 pb-4">
         <button onClick={onBack} className="flex items-center gap-1.5 text-muted-foreground text-sm">

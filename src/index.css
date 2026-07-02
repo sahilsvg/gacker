@@ -133,6 +133,44 @@
   animation: fade-in 0.4s ease-out forwards;
 }
 
+/* Red flash — red day logged */
+@keyframes red-flash {
+  0% { background: rgba(220,0,0,0); }
+  15% { background: rgba(220,0,0,1); }
+  70% { background: rgba(220,0,0,1); }
+  100% { background: rgba(220,0,0,0); }
+}
+.animate-red-flash {
+  animation: red-flash 2.8s ease-out forwards;
+}
+
+/* Slide up — overlays (Settings, Notifications, Follow Requests) */
+@keyframes slide-up {
+  0% { transform: translateY(40px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+.animate-slide-up {
+  animation: slide-up 0.28s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+/* Slide in from right — sub-pages (UserProfile) */
+@keyframes slide-in-right {
+  0% { transform: translateX(48px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+.animate-slide-in-right {
+  animation: slide-in-right 0.26s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+/* Tab enter — each tab when it becomes active */
+@keyframes tab-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-tab-enter {
+  animation: tab-enter 0.2s ease-out both;
+}
+
 /* Tab bar safe area */
 .tab-bar-height {
   height: calc(45px + env(safe-area-inset-bottom));

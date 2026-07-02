@@ -2,9 +2,14 @@ import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import { ChevronDown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { formatDateKey, upsertEntry, fetchEntries, Entry } from '@/lib/entries';
+import { formatDateKey, upsertEntry, fetchEntries, computeStats, Entry } from '@/lib/entries';
+import { getFollowerIds } from '@/lib/social';
+import { createNotificationsForMany } from '@/lib/notifications';
 import SongPicker, { SongSelection } from '@/components/SongPicker';
 import DatePickerSheet from '@/components/DatePickerSheet';
+
+const STREAK_MILESTONES = new Set([3, 7, 14, 21, 30, 60, 90, 180, 365]);
+
 
 const triggerCleanConfetti = () => {
   const colors = ['#22C55E', '#16a34a', '#86efac', '#ffffff'];
@@ -59,10 +64,31 @@ const LogTab = ({ resetKey: _ }: { resetKey: number }) => {
     if (!user || animating) return;
     setAnimating(true);
     await upsertEntry(user.id, selectedDate, clean, notes.trim(), null, song);
-    // Refresh entries
     const updated = await fetchEntries(user.id);
     setEntries(updated);
-    if (clean && isToday) triggerCleanConfetti();
+    if (!clean && isToday) {
+      const el = document.createElement('div');
+      el.style.cssText = 'position:fixed;top:-200px;left:-200px;right:-200px;bottom:-200px;background:rgb(210,0,0);z-index:999999;pointer-events:none;opacity:0;transition:opacity 0.2s ease-in;';
+      document.body.appendChild(el);
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        el.style.opacity = '1';
+        setTimeout(() => {
+          el.style.transition = 'opacity 1s ease-out';
+          el.style.opacity = '0';
+          setTimeout(() => el.remove(), 1100);
+        }, 1800);
+      }));
+    }
+    if (clean && isToday) {
+      triggerCleanConfetti();
+      // Fire streak milestone notifications to followers
+      const { streak } = computeStats(updated);
+      if (STREAK_MILESTONES.has(streak)) {
+        getFollowerIds(user.id).then(ids => {
+          createNotificationsForMany(ids, 'streak_milestone', user.id, { streak_count: streak });
+        });
+      }
+    }
     setTimeout(() => setAnimating(false), 1200);
   };
 
@@ -71,6 +97,7 @@ const LogTab = ({ resetKey: _ }: { resetKey: number }) => {
   const dateLabel = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
   return (
+    <>
     <div className="flex flex-col h-full tab-bar-padding">
       <div className="flex-1 overflow-y-auto px-5 pt-6 pb-6">
 
@@ -164,6 +191,7 @@ const LogTab = ({ resetKey: _ }: { resetKey: number }) => {
         />
       )}
     </div>
+    </>
   );
 };
 

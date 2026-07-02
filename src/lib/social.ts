@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { createNotification } from '@/lib/notifications';
 
 export interface FeedItem {
   id: string;
@@ -101,11 +102,12 @@ export const getMyActivity = async (userId: string): Promise<FeedItem[]> => {
   }));
 };
 
-export const toggleLike = async (userId: string, entryId: string, iLiked: boolean) => {
+export const toggleLike = async (userId: string, entryId: string, iLiked: boolean, entryOwnerId?: string) => {
   if (iLiked) {
     await supabase.from('likes').delete().eq('user_id', userId).eq('entry_id', entryId);
   } else {
     await supabase.from('likes').insert({ user_id: userId, entry_id: entryId });
+    if (entryOwnerId) createNotification(entryOwnerId, 'like', userId, { entry_id: entryId });
   }
 };
 
@@ -128,8 +130,9 @@ export const getComments = async (entryId: string): Promise<Comment[]> => {
   return comments.map(c => ({ ...c, profile: profileMap[c.user_id] }));
 };
 
-export const postComment = async (userId: string, entryId: string, body: string): Promise<string | null> => {
+export const postComment = async (userId: string, entryId: string, body: string, entryOwnerId?: string): Promise<string | null> => {
   const { error } = await supabase.from('comments').insert({ user_id: userId, entry_id: entryId, body });
+  if (!error && entryOwnerId) createNotification(entryOwnerId, 'comment', userId, { entry_id: entryId, body: body.slice(0, 80) });
   return error?.message ?? null;
 };
 
@@ -175,6 +178,12 @@ export const getFollowStatus = async (myId: string, targetId: string): Promise<F
 
 export const followUser = async (followerId: string, followingId: string) => {
   await supabase.from('follows').insert({ follower_id: followerId, following_id: followingId, status: 'pending' });
+  createNotification(followingId, 'follow_request', followerId);
+};
+
+export const getFollowerIds = async (userId: string): Promise<string[]> => {
+  const { data } = await supabase.from('follows').select('follower_id').eq('following_id', userId).eq('status', 'accepted');
+  return (data ?? []).map((r: any) => r.follower_id);
 };
 
 export interface FollowRequest {

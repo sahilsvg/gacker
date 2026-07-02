@@ -46,7 +46,7 @@ const FeedCard = ({ item, onProfileTap, onUpdate }: Props) => {
     if (!user) return;
     const newLiked = !item.iLiked;
     onUpdate(item.id, newLiked, item.likeCount + (newLiked ? 1 : -1));
-    await toggleLike(user.id, item.id, item.iLiked);
+    await toggleLike(user.id, item.id, item.iLiked, item.user_id);
   };
 
   return (
@@ -138,7 +138,7 @@ const FeedCard = ({ item, onProfileTap, onUpdate }: Props) => {
       </div>
 
       {showComments && (
-        <CommentsSheet entryId={item.id} onClose={() => setShowComments(false)} onProfileTap={onProfileTap} />
+        <CommentsSheet entryId={item.id} entryOwnerId={item.user_id} onClose={() => setShowComments(false)} onProfileTap={onProfileTap} />
       )}
       {showLikes && (
         <LikesSheet entryId={item.id} onClose={() => setShowLikes(false)} onProfileTap={onProfileTap} />

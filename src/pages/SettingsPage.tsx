@@ -84,7 +84,7 @@ const SettingsPage = ({ onClose }: Props) => {
 
   return (
     <div
-      className="fixed inset-0 bg-background flex flex-col z-[300]"
+      className="fixed inset-0 bg-background flex flex-col z-[300] animate-slide-up"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       {/* Header */}

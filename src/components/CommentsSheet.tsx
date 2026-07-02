@@ -5,6 +5,7 @@ import { getComments, postComment, deleteComment, Comment } from '@/lib/social';
 
 interface Props {
   entryId: string;
+  entryOwnerId?: string;
   onClose: () => void;
   onProfileTap: (userId: string) => void;
 }
@@ -17,7 +18,7 @@ const Avatar = ({ profile }: { profile: { name: string; avatar_url: string | nul
       </div>
 );
 
-const CommentsSheet = ({ entryId, onClose, onProfileTap }: Props) => {
+const CommentsSheet = ({ entryId, entryOwnerId, onClose, onProfileTap }: Props) => {
   const { user } = useAuth();
   const [comments, setComments] = useState<Comment[]>([]);
   const [body, setBody] = useState('');
@@ -39,7 +40,7 @@ const CommentsSheet = ({ entryId, onClose, onProfileTap }: Props) => {
     if (!user || !body.trim() || posting) return;
     setPosting(true);
     setError('');
-    const err = await postComment(user.id, entryId, body.trim());
+    const err = await postComment(user.id, entryId, body.trim(), entryOwnerId);
     if (err) {
       setError('Failed to post. Try again.');
       setPosting(false);

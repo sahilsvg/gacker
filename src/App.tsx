@@ -68,16 +68,16 @@ const AppShell = () => {
   return (
     <div className="flex flex-col h-full animate-fade-in">
       <div className="flex-1 relative overflow-hidden">
-        <div className={activeTab === 'log' ? 'block h-full' : 'hidden'}>
+        <div key={`log-${resetKeys.log}`} className={activeTab === 'log' ? 'block h-full animate-tab-enter' : 'hidden'}>
           <LogTab resetKey={resetKeys.log} />
         </div>
-        <div className={activeTab === 'feed' ? 'block h-full' : 'hidden'}>
+        <div key={`feed-${resetKeys.feed}`} className={activeTab === 'feed' ? 'block h-full animate-tab-enter' : 'hidden'}>
           <FeedTab isActive={activeTab === 'feed'} resetKey={resetKeys.feed} />
         </div>
-        <div className={activeTab === 'ganalytics' ? 'block h-full' : 'hidden'}>
+        <div key={`ganalytics-${resetKeys.ganalytics}`} className={activeTab === 'ganalytics' ? 'block h-full animate-tab-enter' : 'hidden'}>
           <GanalyticsTab resetKey={resetKeys.ganalytics} />
         </div>
-        <div className={activeTab === 'profile' ? 'block h-full' : 'hidden'}>
+        <div key={`profile-${resetKeys.profile}`} className={activeTab === 'profile' ? 'block h-full animate-tab-enter' : 'hidden'}>
           <ProfileTab isActive={activeTab === 'profile'} resetKey={resetKeys.profile} />
         </div>
       </div>

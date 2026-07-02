@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Check, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getPendingRequests, approveRequest, denyRequest, FollowRequest } from '@/lib/social';
+import { createNotification } from '@/lib/notifications';
 
 interface Props {
   onClose: () => void;
@@ -21,6 +22,7 @@ const FollowRequestsPage = ({ onClose }: Props) => {
     if (!user) return;
     setRequests(prev => prev.filter(r => r.follower_id !== followerId));
     await approveRequest(followerId, user.id);
+    createNotification(followerId, 'follow_accepted', user.id);
   };
 
   const handleDeny = async (followerId: string) => {
@@ -31,7 +33,7 @@ const FollowRequestsPage = ({ onClose }: Props) => {
 
   return (
     <div
-      className="fixed inset-0 bg-background flex flex-col z-[300]"
+      className="fixed inset-0 bg-background flex flex-col z-[300] animate-slide-up"
       style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       {/* Header */}
