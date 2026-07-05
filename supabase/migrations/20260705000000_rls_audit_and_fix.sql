@@ -30,36 +30,10 @@
 
 
 -- ────────────────────────────────────────────────────────────
--- 1. email_subscribers
---    BUG: "Anyone can read email_subscribers" exposes all emails
---    to unauthenticated callers. Drop it. No feature needs it.
+-- 1 & 2. Legacy tables (email_subscribers, goon_tracker)
+--    These only exist in the old project, not in gacker.
+--    Skipped — not present in this database.
 -- ────────────────────────────────────────────────────────────
-DROP POLICY IF EXISTS "Anyone can read email_subscribers"   ON public.email_subscribers;
-DROP POLICY IF EXISTS "Anyone can insert email_subscribers" ON public.email_subscribers;
-DROP POLICY IF EXISTS "Anyone can update email_subscribers" ON public.email_subscribers;
-
--- Subscribers can insert their own row; nobody can read/update via API.
-CREATE POLICY "email_subscribers_insert"
-  ON public.email_subscribers FOR INSERT
-  WITH CHECK (true);
-
-
--- ────────────────────────────────────────────────────────────
--- 2. goon_tracker (legacy)
---    BUG: unauthenticated users could INSERT and UPDATE rows.
--- ────────────────────────────────────────────────────────────
-DROP POLICY IF EXISTS "Allow public insert" ON public.goon_tracker;
-DROP POLICY IF EXISTS "Allow public update" ON public.goon_tracker;
-
-CREATE POLICY "goon_tracker_insert_authenticated"
-  ON public.goon_tracker FOR INSERT
-  TO authenticated
-  WITH CHECK (true);
-
-CREATE POLICY "goon_tracker_update_authenticated"
-  ON public.goon_tracker FOR UPDATE
-  TO authenticated
-  USING (true) WITH CHECK (true);
 
 
 -- ────────────────────────────────────────────────────────────
