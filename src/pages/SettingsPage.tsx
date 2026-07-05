@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { X, Camera, Loader2, ChevronRight, Moon } from 'lucide-react';
+import { X, Camera, Loader2, ChevronRight, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { validateHandle, validateName, sanitizeHandle, sanitizeName } from '@/lib/validation';
@@ -78,6 +78,24 @@ const SettingsPage = ({ onClose }: Props) => {
     if (error) setHandleError('Could not save handle.');
     else { await refreshProfile(); setEditingHandle(false); setHandleAvailable(null); }
     setHandleSaving(false);
+  };
+
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
+  const handleDeleteAccount = async () => {
+    if (!user) return;
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      const { error } = await supabase.functions.invoke('delete-account', { method: 'POST' });
+      if (error) throw error;
+      await signOut();
+    } catch (err: any) {
+      setDeleteError('Something went wrong. Please try again.');
+      setDeleting(false);
+    }
   };
 
   const phone = user?.phone ?? '—';
@@ -188,31 +206,60 @@ const SettingsPage = ({ onClose }: Props) => {
           </div>
         </Section>
 
-        {/* Appearance */}
-        <Section label="Appearance">
-          <div className="flex items-center justify-between px-4 py-3.5">
-            <div className="flex items-center gap-3">
-              <Moon size={16} className="text-muted-foreground" />
-              <span className="text-sm text-foreground">Dark Mode</span>
-            </div>
-            {/* Always on — toggle is decorative */}
-            <div className="w-12 h-7 rounded-full bg-clean flex items-center px-1">
-              <div className="w-5 h-5 rounded-full bg-white shadow-sm ml-auto" />
-            </div>
-          </div>
-        </Section>
-
-        {/* Sign out */}
-        <div className="px-5 pt-2 pb-8">
+        {/* Sign out + Delete account */}
+        <div className="px-5 pt-2 pb-8 space-y-3">
           <button
             onPointerDown={e => { e.preventDefault(); signOut(); }}
             className="w-full py-3.5 rounded-2xl bg-card border border-border text-red text-sm font-semibold transition-all active:scale-95"
           >
             Sign Out
           </button>
+          <button
+            onPointerDown={e => { e.preventDefault(); setShowDeleteConfirm(true); }}
+            className="w-full py-3.5 rounded-2xl text-red/60 text-sm font-medium transition-all active:opacity-60"
+          >
+            Delete Account
+          </button>
         </div>
 
       </div>
+
+      {/* Delete account confirmation dialog */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[400] flex items-center justify-center px-6">
+          <div className="absolute inset-0 bg-black/70" onPointerDown={() => { if (!deleting) setShowDeleteConfirm(false); }} />
+          <div className="relative bg-card border border-border rounded-3xl p-6 w-full max-w-sm">
+            <div className="flex justify-center mb-4">
+              <div className="w-12 h-12 rounded-full bg-red/10 flex items-center justify-center">
+                <AlertTriangle size={22} className="text-red" />
+              </div>
+            </div>
+            <h3 className="font-semibold text-foreground text-base text-center mb-2">Delete Account</h3>
+            <p className="text-muted-foreground text-sm text-center mb-6 leading-relaxed">
+              This will permanently delete your account and all your data. This can't be undone.
+            </p>
+            {deleteError && (
+              <p className="text-red text-xs text-center mb-4">{deleteError}</p>
+            )}
+            <div className="flex gap-3">
+              <button
+                onPointerDown={e => { e.preventDefault(); if (!deleting) { setShowDeleteConfirm(false); setDeleteError(''); } }}
+                disabled={deleting}
+                className="flex-1 py-3 rounded-2xl bg-muted text-foreground text-sm font-semibold active:scale-95 transition-all disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onPointerDown={e => { e.preventDefault(); handleDeleteAccount(); }}
+                disabled={deleting}
+                className="flex-1 py-3 rounded-2xl bg-red text-white text-sm font-semibold active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {deleting ? <><Loader2 size={14} className="animate-spin" /> Deleting…</> : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

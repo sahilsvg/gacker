@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
+import ReactDOM from 'react-dom';
 import { X, Send, Trash2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getComments, postComment, deleteComment, Comment } from '@/lib/social';
+import { timeAgo } from '@/lib/timeAgo';
 
 interface Props {
   entryId: string;
@@ -25,7 +27,13 @@ const CommentsSheet = ({ entryId, entryOwnerId, onClose, onProfileTap }: Props) 
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState('');
+  const [isClosing, setIsClosing] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const handleClose = () => {
+    setIsClosing(true);
+    setTimeout(onClose, 210);
+  };
 
   const load = async () => {
     const data = await getComments(entryId);
@@ -56,14 +64,14 @@ const CommentsSheet = ({ entryId, entryOwnerId, onClose, onProfileTap }: Props) 
     setComments(prev => prev.filter(c => c.id !== commentId));
   };
 
-  return (
-    <div className="fixed inset-0 z-[200] flex flex-col justify-end">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-card rounded-t-3xl flex flex-col" style={{ maxHeight: '75vh', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+  const sheet = (
+    <div className="fixed inset-0 z-[200]">
+      <div className="absolute inset-0 bg-black/60" onClick={handleClose} />
+      <div className={`absolute bottom-0 left-0 right-0 bg-card rounded-t-3xl flex flex-col ${isClosing ? 'animate-slide-down' : 'animate-slide-up'}`} style={{ maxHeight: '70vh', paddingBottom: 'env(safe-area-inset-bottom)' }}>
 
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <h3 className="font-semibold text-foreground">Comments</h3>
-          <button onClick={onClose} className="text-muted-foreground p-1"><X size={20} /></button>
+          <button onClick={handleClose} className="text-muted-foreground p-1"><X size={20} /></button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 pt-3 pb-2 space-y-4">
@@ -82,6 +90,7 @@ const CommentsSheet = ({ entryId, entryOwnerId, onClose, onProfileTap }: Props) 
                   <span className="text-xs text-muted-foreground">@{c.profile?.handle}</span>
                 </div>
                 <p className="text-sm text-foreground/90 leading-relaxed">{c.body}</p>
+                <p className="text-[10px] text-muted-foreground/60 mt-0.5">{timeAgo(c.created_at)}</p>
               </div>
               {c.user_id === user?.id && (
                 <button onClick={() => handleDelete(c.id)} className="text-muted-foreground hover:text-red transition-colors flex-shrink-0 p-1">
@@ -115,6 +124,8 @@ const CommentsSheet = ({ entryId, entryOwnerId, onClose, onProfileTap }: Props) 
       </div>
     </div>
   );
+
+  return ReactDOM.createPortal(sheet, document.body);
 };
 
 export default CommentsSheet;

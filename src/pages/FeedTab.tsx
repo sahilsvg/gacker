@@ -184,6 +184,7 @@ const FeedTab = ({ isActive, resetKey }: Props) => {
               item={item}
               onProfileTap={handleProfileTap}
               onUpdate={handleUpdate}
+              isTabActive={isActive}
             />
           ))}
         </div>

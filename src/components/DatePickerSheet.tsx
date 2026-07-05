@@ -17,6 +17,9 @@ const DatePickerSheet = ({ selected, entries, onSelect, onClose }: Props) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  const [isClosing, setIsClosing] = useState(false);
+  const handleClose = () => { setIsClosing(true); setTimeout(onClose, 210); };
+
   const [viewYear, setViewYear] = useState(() => {
     const d = new Date(selected + 'T00:00:00');
     return d.getFullYear();
@@ -47,8 +50,8 @@ const DatePickerSheet = ({ selected, entries, onSelect, onClose }: Props) => {
 
   return (
     <div className="fixed inset-0 z-[250] flex flex-col justify-end">
-      <div className="absolute inset-0 bg-black/60" onPointerDown={onClose} />
-      <div className="relative bg-card rounded-t-3xl" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      <div className="absolute inset-0 bg-black/60" onPointerDown={handleClose} />
+      <div className={`relative bg-card rounded-t-3xl ${isClosing ? 'animate-slide-down' : 'animate-slide-up'}`} style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
 
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
@@ -58,7 +61,7 @@ const DatePickerSheet = ({ selected, entries, onSelect, onClose }: Props) => {
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-border">
           <h3 className="font-semibold text-foreground">Select a date</h3>
-          <button onPointerDown={e => { e.preventDefault(); onClose(); }} className="text-muted-foreground active:opacity-60">
+          <button onPointerDown={e => { e.preventDefault(); handleClose(); }} className="text-muted-foreground active:opacity-60">
             <X size={18} />
           </button>
         </div>
@@ -89,8 +92,8 @@ const DatePickerSheet = ({ selected, entries, onSelect, onClose }: Props) => {
           ))}
         </div>
 
-        {/* Day grid */}
-        <div className="grid grid-cols-7 px-4 pb-5">
+        {/* Day grid — always 6 rows for consistent height */}
+        <div className="grid grid-cols-7 px-4 pb-5" style={{ gridTemplateRows: 'repeat(6, 1fr)' }}>
           {Array.from({ length: firstDow }).map((_, i) => <div key={`b${i}`} />)}
           {Array.from({ length: daysInMonth }, (_, i) => {
             const d = new Date(viewYear, viewMonth, i + 1);
@@ -111,7 +114,7 @@ const DatePickerSheet = ({ selected, entries, onSelect, onClose }: Props) => {
               symbol = entry?.clean ? '✓' : entry ? '✗' : String(i + 1);
             } else if (isPreLaunch) {
               circleClass = 'text-muted-foreground/20';
-              symbol = '✗';
+              symbol = String(i + 1);
             } else if (isFuture) {
               circleClass = 'text-muted-foreground/25';
               symbol = String(i + 1);
@@ -134,7 +137,7 @@ const DatePickerSheet = ({ selected, entries, onSelect, onClose }: Props) => {
                     e.preventDefault();
                     if (!tappable) return;
                     onSelect(key);
-                    onClose();
+                    handleClose();
                   }}
                   className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold transition-all active:scale-90 disabled:pointer-events-none ${circleClass}`}
                 >
@@ -143,6 +146,7 @@ const DatePickerSheet = ({ selected, entries, onSelect, onClose }: Props) => {
               </div>
             );
           })}
+          {Array.from({ length: 42 - firstDow - daysInMonth }).map((_, i) => <div key={`t${i}`} />)}
         </div>
       </div>
     </div>

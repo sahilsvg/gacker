@@ -49,6 +49,7 @@ const ProfileTab = ({ isActive, resetKey }: Props) => {
 
   useEffect(() => {
     if (isActive) load(true);
+    else { setFollowSheet(null); setShowRequests(false); setShowSettings(false); }
   }, [isActive]);
 
   useEffect(() => {

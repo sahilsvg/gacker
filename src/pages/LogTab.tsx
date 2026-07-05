@@ -32,7 +32,7 @@ const formatDisplayDate = (dateKey: string) => {
   return isToday ? label : label;
 };
 
-const LogTab = ({ resetKey: _ }: { resetKey: number }) => {
+const LogTab = ({ resetKey: _, isActive }: { resetKey: number; isActive?: boolean }) => {
   const { user } = useAuth();
   const todayKey = formatDateKey(new Date());
 
@@ -42,6 +42,10 @@ const LogTab = ({ resetKey: _ }: { resetKey: number }) => {
   const [song, setSong] = useState<SongSelection | null>(null);
   const [animating, setAnimating] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
+
+  useEffect(() => {
+    if (!isActive) setShowPicker(false);
+  }, [isActive]);
 
   // Load all entries for calendar display
   useEffect(() => {
@@ -66,7 +70,7 @@ const LogTab = ({ resetKey: _ }: { resetKey: number }) => {
     await upsertEntry(user.id, selectedDate, clean, notes.trim(), null, song);
     const updated = await fetchEntries(user.id);
     setEntries(updated);
-    if (!clean && isToday) {
+    if (!clean) {
       const el = document.createElement('div');
       el.style.cssText = 'position:fixed;top:-200px;left:-200px;right:-200px;bottom:-200px;background:rgb(210,0,0);z-index:999999;pointer-events:none;opacity:0;transition:opacity 0.2s ease-in;';
       document.body.appendChild(el);
@@ -79,7 +83,7 @@ const LogTab = ({ resetKey: _ }: { resetKey: number }) => {
         }, 1800);
       }));
     }
-    if (clean && isToday) {
+    if (clean) {
       triggerCleanConfetti();
       // Fire streak milestone notifications to followers
       const { streak } = computeStats(updated);

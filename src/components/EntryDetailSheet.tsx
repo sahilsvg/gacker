@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { X, Music, Play, Pause } from 'lucide-react';
 import { Entry } from '@/lib/entries';
+import { timeAgo } from '@/lib/timeAgo';
 
 interface Props {
   dateKey: string;
@@ -10,7 +11,10 @@ interface Props {
 
 const EntryDetailSheet = ({ dateKey, entry, onClose }: Props) => {
   const [playing, setPlaying] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const handleClose = () => { stop(); setIsClosing(true); setTimeout(onClose, 210); };
 
   const [y, m, d] = dateKey.split('-').map(Number);
   const dateObj = new Date(y, m - 1, d);
@@ -33,10 +37,10 @@ const EntryDetailSheet = ({ dateKey, entry, onClose }: Props) => {
 
   return (
     <div className="fixed inset-0 z-[200] flex flex-col justify-end">
-      <div className="absolute inset-0 bg-black/60" onPointerDown={() => { stop(); onClose(); }} />
+      <div className="absolute inset-0 bg-black/60" onPointerDown={handleClose} />
       <div
-        className="relative bg-card rounded-t-3xl flex flex-col"
-        style={{ maxHeight: '75vh', paddingBottom: 'env(safe-area-inset-bottom)' }}
+        className={`relative bg-card rounded-t-3xl flex flex-col ${isClosing ? 'animate-slide-down' : 'animate-slide-up'}`}
+        style={{ height: '72vh', paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
@@ -47,8 +51,9 @@ const EntryDetailSheet = ({ dateKey, entry, onClose }: Props) => {
         <div className="flex items-center justify-between px-5 py-3 border-b border-border">
           <div>
             <p className="font-semibold text-foreground text-sm">{dateLabel}</p>
+            {entry.created_at && <p className="text-[10px] text-muted-foreground/60 mt-0.5">logged {timeAgo(entry.created_at)}</p>}
           </div>
-          <button onPointerDown={e => { e.preventDefault(); stop(); onClose(); }} className="text-muted-foreground active:opacity-60">
+          <button onPointerDown={e => { e.preventDefault(); handleClose(); }} className="text-muted-foreground active:opacity-60">
             <X size={18} />
           </button>
         </div>
@@ -62,17 +67,7 @@ const EntryDetailSheet = ({ dateKey, entry, onClose }: Props) => {
             {entry.clean ? 'Clean Day' : 'Red Day'}
           </div>
 
-          {/* Notes */}
-          {entry.notes ? (
-            <div>
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Notes</p>
-              <p className="text-sm text-foreground/90 leading-relaxed">{entry.notes}</p>
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground italic">No notes recorded.</p>
-          )}
-
-          {/* Song */}
+          {/* Song — shown first so it's always visible */}
           {entry.song_name && (
             <div>
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Song</p>
@@ -100,6 +95,16 @@ const EntryDetailSheet = ({ dateKey, entry, onClose }: Props) => {
                 )}
               </div>
             </div>
+          )}
+
+          {/* Notes */}
+          {entry.notes ? (
+            <div>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Notes</p>
+              <p className="text-sm text-foreground/90 leading-relaxed">{entry.notes}</p>
+            </div>
+          ) : (
+            !entry.song_name && <p className="text-sm text-muted-foreground italic">No notes recorded.</p>
           )}
         </div>
       </div>

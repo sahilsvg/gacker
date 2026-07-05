@@ -22,7 +22,7 @@ const SplashScreen = ({ onComplete }: Props) => {
         The Gacker
       </h1>
       <p className="mt-4 text-muted-foreground text-sm tracking-widest uppercase font-medium opacity-0 animate-fade-in" style={{ animationDelay: '1.4s', animationFillMode: 'forwards' }}>
-        Stay clean.
+        Never Doom.
       </p>
     </div>
   );

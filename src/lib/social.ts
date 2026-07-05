@@ -48,7 +48,7 @@ export const getFeed = async (userId: string): Promise<FeedItem[]> => {
   if (followingIds.length === 0) return [];
 
   const [entriesRes, profilesRes] = await Promise.all([
-    supabase.from('entries').select('*').in('user_id', followingIds).order('date', { ascending: false }).limit(50),
+    supabase.from('entries').select('*').in('user_id', followingIds).order('created_at', { ascending: false }).limit(50),
     supabase.from('profiles').select('id, name, handle, avatar_url').in('id', followingIds),
   ]);
 
@@ -76,7 +76,7 @@ export const getFeed = async (userId: string): Promise<FeedItem[]> => {
 
 export const getMyActivity = async (userId: string): Promise<FeedItem[]> => {
   const [entriesRes, profileRes] = await Promise.all([
-    supabase.from('entries').select('*').eq('user_id', userId).order('date', { ascending: false }).limit(50),
+    supabase.from('entries').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(50),
     supabase.from('profiles').select('id, name, handle, avatar_url').eq('id', userId).maybeSingle(),
   ]);
 

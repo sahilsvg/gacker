@@ -2,22 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Bell } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getNotifications, markAllRead, AppNotification, NotificationType } from '@/lib/notifications';
+import { timeAgo } from '@/lib/timeAgo';
 
 interface Props {
   onClose: () => void;
 }
-
-const timeAgo = (iso: string) => {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return `${Math.floor(days / 7)}w ago`;
-};
 
 const notifText = (n: AppNotification): string => {
   const handle = n.actor_profile?.handle ? `@${n.actor_profile.handle}` : 'Someone';

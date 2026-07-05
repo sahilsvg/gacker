@@ -153,6 +153,15 @@
   animation: slide-up 0.28s cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 
+/* Slide down — sheet dismiss */
+@keyframes slide-down {
+  0% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(48px); opacity: 0; }
+}
+.animate-slide-down {
+  animation: slide-down 0.22s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
 /* Slide in from right — sub-pages (UserProfile) */
 @keyframes slide-in-right {
   0% { transform: translateX(48px); opacity: 0; }

@@ -60,8 +60,8 @@ const OTPVerify = ({ phone, onVerified, onBack }: Props) => {
   const displayPhone = phone.replace('+1', '').replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3');
 
   return (
-    <div className="flex flex-col h-full items-center justify-center px-8" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-      <div className="w-full max-w-sm">
+    <div className="flex flex-col h-full items-center justify-center px-8" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      <div className="w-full max-w-sm" style={{ marginTop: '-15vh' }}>
         <button onClick={onBack} className="flex items-center gap-1.5 text-muted-foreground text-sm mb-10 -ml-1">
           <ArrowLeft size={16} /> Back
         </button>

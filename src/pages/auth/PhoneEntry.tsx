@@ -42,7 +42,7 @@ const PhoneEntry = ({ onCodeSent }: Props) => {
 
   return (
     <div className="flex flex-col h-full items-center justify-center px-8">
-      <div className="w-full max-w-sm">
+      <div className="w-full max-w-sm" style={{ marginTop: '-15vh' }}>
         <h1 className="font-wordmark text-6xl text-foreground mb-2 text-center">The Gacker</h1>
         <p className="text-muted-foreground text-sm text-center mb-12">Enter your number to get started.</p>
 

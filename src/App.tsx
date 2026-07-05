@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as Sonner } from '@/components/ui/sonner';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { Keyboard } from '@capacitor/keyboard';
+import { Capacitor } from '@capacitor/core';
 import SplashScreen from '@/components/SplashScreen';
 import BottomNav, { Tab } from '@/components/BottomNav';
 import PhoneEntry from '@/pages/auth/PhoneEntry';
@@ -26,6 +28,24 @@ const AppShell = () => {
   const [authStep, setAuthStep] = useState<AuthStep>('phone');
   const [pendingPhone, setPendingPhone] = useState('');
   const [showWelcome, setShowWelcome] = useState(false);
+  const prevUser = useRef(user);
+
+  // Hide iOS keyboard accessory bar (up/down/done toolbar)
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      Keyboard.setAccessoryBarVisible({ isVisible: false });
+    }
+  }, []);
+
+  // Reset auth flow to phone entry whenever user signs out
+  useEffect(() => {
+    if (prevUser.current && !user) {
+      setAuthStep('phone');
+      setPendingPhone('');
+      setShowWelcome(false);
+    }
+    prevUser.current = user;
+  }, [user]);
 
   const handleTabChange = (tab: Tab) => {
     if (tab === activeTab) {
@@ -57,7 +77,7 @@ const AppShell = () => {
     }
   }
 
-  if (user && !profile && authStep !== 'welcome') {
+  if (user && !profile && authStep === 'setup') {
     return <ProfileSetup onComplete={() => setShowWelcome(true)} />;
   }
 
@@ -69,7 +89,7 @@ const AppShell = () => {
     <div className="flex flex-col h-full animate-fade-in">
       <div className="flex-1 relative overflow-hidden">
         <div key={`log-${resetKeys.log}`} className={activeTab === 'log' ? 'block h-full animate-tab-enter' : 'hidden'}>
-          <LogTab resetKey={resetKeys.log} />
+          <LogTab resetKey={resetKeys.log} isActive={activeTab === 'log'} />
         </div>
         <div key={`feed-${resetKeys.feed}`} className={activeTab === 'feed' ? 'block h-full animate-tab-enter' : 'hidden'}>
           <FeedTab isActive={activeTab === 'feed'} resetKey={resetKeys.feed} />

@@ -14,6 +14,9 @@ const FollowListSheet = ({ userId, type, onClose, onProfileTap, currentUserId }:
   const [profiles, setProfiles] = useState<SearchProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [removing, setRemoving] = useState<string | null>(null);
+  const [isClosing, setIsClosing] = useState(false);
+
+  const handleClose = () => { setIsClosing(true); setTimeout(onClose, 210); };
 
   const isOwnList = currentUserId === userId;
 
@@ -38,12 +41,12 @@ const FollowListSheet = ({ userId, type, onClose, onProfileTap, currentUserId }:
   const title = type === 'followers' ? 'Followers' : 'Following';
 
   return (
-    <div className="fixed inset-0 z-[200] flex flex-col" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+    <div className="fixed inset-0 z-[200] flex flex-col">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" onPointerDown={onClose} />
+      <div className="absolute inset-0 bg-black/50" onPointerDown={handleClose} />
 
       {/* Sheet */}
-      <div className="absolute bottom-0 left-0 right-0 bg-card rounded-t-3xl flex flex-col" style={{ maxHeight: '75vh' }}>
+      <div className={`absolute bottom-0 left-0 right-0 bg-card rounded-t-3xl flex flex-col ${isClosing ? 'animate-slide-down' : 'animate-slide-up'}`} style={{ minHeight: '40vh', maxHeight: '75vh' }}>
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 rounded-full bg-border" />
@@ -52,13 +55,13 @@ const FollowListSheet = ({ userId, type, onClose, onProfileTap, currentUserId }:
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-border">
           <h3 className="font-semibold text-foreground">{title}</h3>
-          <button onPointerDown={e => { e.preventDefault(); onClose(); }} className="text-muted-foreground active:opacity-60">
+          <button onPointerDown={e => { e.preventDefault(); handleClose(); }} className="text-muted-foreground active:opacity-60">
             <X size={18} />
           </button>
         </div>
 
         {/* List */}
-        <div className="overflow-y-auto flex-1 px-5 py-3">
+        <div className="overflow-y-auto flex-1 px-5 py-3" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)' }}>
           {loading ? (
             <div className="flex justify-center py-10">
               <Loader2 size={20} className="animate-spin text-muted-foreground" />

@@ -1,7 +1,8 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Heart, MessageCircle, MapPin, Music, Play, Pause } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toggleLike, FeedItem } from '@/lib/social';
+import { timeAgo } from '@/lib/timeAgo';
 import CommentsSheet from './CommentsSheet';
 import LikesSheet from './LikesSheet';
 
@@ -9,6 +10,7 @@ interface Props {
   item: FeedItem;
   onProfileTap: (userId: string) => void;
   onUpdate: (id: string, iLiked: boolean, likeCount: number) => void;
+  isTabActive?: boolean;
 }
 
 const Avatar = ({ profile }: { profile: FeedItem['profile'] }) => (
@@ -19,10 +21,14 @@ const Avatar = ({ profile }: { profile: FeedItem['profile'] }) => (
       </div>
 );
 
-const FeedCard = ({ item, onProfileTap, onUpdate }: Props) => {
+const FeedCard = ({ item, onProfileTap, onUpdate, isTabActive }: Props) => {
   const { user } = useAuth();
   const [showComments, setShowComments] = useState(false);
   const [showLikes, setShowLikes] = useState(false);
+
+  useEffect(() => {
+    if (!isTabActive) { setShowComments(false); setShowLikes(false); }
+  }, [isTabActive]);
   const [songPlaying, setSongPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -63,7 +69,10 @@ const FeedCard = ({ item, onProfileTap, onUpdate }: Props) => {
               <p className="text-xs text-muted-foreground">@{item.profile?.handle}</p>
             </button>
           </div>
-          <span className="text-xs text-muted-foreground flex-shrink-0">{dateLabel}</span>
+          <div className="flex flex-col items-end flex-shrink-0">
+            <span className="text-xs text-muted-foreground">{dateLabel}</span>
+            {item.created_at && <span className="text-[10px] text-muted-foreground/60">{timeAgo(item.created_at)}</span>}
+          </div>
         </div>
 
         {/* Status */}

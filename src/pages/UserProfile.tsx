@@ -13,6 +13,7 @@ interface Props {
 
 const UserProfile = ({ userId, onBack }: Props) => {
   const { user } = useAuth();
+  const isOwnProfile = user?.id === userId;
   const [profile, setProfile] = useState<{ id: string; name: string; handle: string; avatar_url: string | null } | null>(null);
   const [entries, setEntries] = useState<Record<string, Entry>>({});
   const [followStatus, setFollowStatus] = useState<FollowStatus>('none');
@@ -116,21 +117,21 @@ const UserProfile = ({ userId, onBack }: Props) => {
             {/* Stats */}
             <div className="grid grid-cols-3 gap-3 mb-8">
               <div className="bg-card border border-border rounded-2xl p-4 text-center">
-                <div className="font-mono-stats text-2xl font-medium text-clean">{followStatus === 'accepted' ? streak : '—'}</div>
+                <div className="font-mono-stats text-2xl font-medium text-clean">{(isOwnProfile || followStatus === 'accepted') ? streak : '—'}</div>
                 <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mt-1">Streak</div>
               </div>
               <div className="bg-card border border-border rounded-2xl p-4 text-center">
-                <div className="font-mono-stats text-2xl font-medium text-clean">{followStatus === 'accepted' ? cleanDays : '—'}</div>
+                <div className="font-mono-stats text-2xl font-medium text-clean">{(isOwnProfile || followStatus === 'accepted') ? cleanDays : '—'}</div>
                 <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mt-1">Clean</div>
               </div>
               <div className="bg-card border border-border rounded-2xl p-4 text-center">
-                <div className="font-mono-stats text-2xl font-medium text-red">{followStatus === 'accepted' ? redDays : '—'}</div>
+                <div className="font-mono-stats text-2xl font-medium text-red">{(isOwnProfile || followStatus === 'accepted') ? redDays : '—'}</div>
                 <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mt-1">Red Days</div>
               </div>
             </div>
 
-            {/* Calendar — only shown to accepted followers */}
-            {followStatus === 'accepted' ? (
+            {/* Calendar — shown to self and accepted followers */}
+            {(isOwnProfile || followStatus === 'accepted') ? (
               <CalendarView
                 entries={entries}
                 onDayTap={(dateKey, entry) => setEntryDetail({ dateKey, entry })}

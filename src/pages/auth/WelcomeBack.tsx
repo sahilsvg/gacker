@@ -30,7 +30,7 @@ const WelcomeBack = ({ onDone }: Props) => {
         <h2 className="text-2xl font-semibold text-foreground mb-1">
           Welcome back, {profile?.name?.split(' ')[0] ?? 'friend'}.
         </h2>
-        <p className="text-muted-foreground text-sm">Stay clean.</p>
+        <p className="text-muted-foreground text-sm">Never Doom.</p>
       </div>
     </div>
   );
