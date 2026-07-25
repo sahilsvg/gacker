@@ -26,21 +26,26 @@ const PlayerContext = createContext<PlayerContextType>({
 });
 
 // One Audio instance for the entire app — prevents simultaneous playback
-const audio = new Audio();
+// Lazily created so it initialises after the DOM is ready
+let audio: HTMLAudioElement | null = null;
+const getAudio = (): HTMLAudioElement => {
+  if (!audio) audio = new Audio();
+  return audio;
+};
 
 export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
   const [currentSong, setCurrentSong] = useState<PlayerSong | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
 
   useEffect(() => {
-    audio.onended = () => setIsPlaying(false);
+    getAudio().onended = () => setIsPlaying(false);
 
     // Pause when user leaves the app
     if (Capacitor.isNativePlatform()) {
       let removeListener: (() => void) | undefined;
       App.addListener('appStateChange', ({ isActive }) => {
         if (!isActive) {
-          audio.pause();
+          getAudio().pause();
           setIsPlaying(false);
         }
       }).then(handle => { removeListener = () => handle.remove(); });
@@ -49,38 +54,39 @@ export const PlayerProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const play = (song: PlayerSong) => {
+    const a = getAudio();
     if (currentSong?.url === song.url) {
-      // Same song — just toggle
-      if (audio.paused) {
-        audio.play().then(() => setIsPlaying(true)).catch(() => {});
+      if (a.paused) {
+        a.play().then(() => setIsPlaying(true)).catch(() => {});
       } else {
-        audio.pause();
+        a.pause();
         setIsPlaying(false);
       }
       return;
     }
-    // New song — stop whatever is playing and start this one
-    audio.pause();
-    audio.src = song.url;
-    audio.currentTime = 0;
-    audio.play()
+    a.pause();
+    a.src = song.url;
+    a.currentTime = 0;
+    a.play()
       .then(() => { setCurrentSong(song); setIsPlaying(true); })
       .catch(() => {});
   };
 
   const togglePlay = () => {
     if (!currentSong) return;
-    if (audio.paused) {
-      audio.play().then(() => setIsPlaying(true)).catch(() => {});
+    const a = getAudio();
+    if (a.paused) {
+      a.play().then(() => setIsPlaying(true)).catch(() => {});
     } else {
-      audio.pause();
+      a.pause();
       setIsPlaying(false);
     }
   };
 
   const stop = () => {
-    audio.pause();
-    audio.currentTime = 0;
+    const a = getAudio();
+    a.pause();
+    a.currentTime = 0;
     setCurrentSong(null);
     setIsPlaying(false);
   };
