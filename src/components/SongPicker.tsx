@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Play, Pause, X, Search, Loader2, Music } from 'lucide-react';
 import { CapacitorHttp } from '@capacitor/core';
 import { usePlayer } from '@/contexts/PlayerContext';
