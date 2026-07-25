@@ -162,6 +162,15 @@
   animation: slide-down 0.22s cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 
+/* Cloud dissolve — MiniPlayer dismiss */
+@keyframes cloud-out {
+  0%   { transform: translateY(0) scale(1);    opacity: 1; filter: blur(0px); }
+  100% { transform: translateY(-6px) scale(1.04); opacity: 0; filter: blur(6px); }
+}
+.animate-cloud-out {
+  animation: cloud-out 0.38s cubic-bezier(0.4, 0, 0.6, 1) both;
+}
+
 /* Slide in from right — sub-pages (UserProfile) */
 @keyframes slide-in-right {
   0% { transform: translateX(48px); opacity: 0; }
