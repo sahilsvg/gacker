@@ -1,6 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Play, Pause } from 'lucide-react';
+import { usePlayer } from '@/contexts/PlayerContext';
 
 interface Props {
   trackName: string;
@@ -11,34 +12,13 @@ interface Props {
   snippetEndMs: number | null;
 }
 
-const SnippetPlayer: React.FC<Props> = ({ trackName, artist, albumArt, previewUrl, snippetStartMs, snippetEndMs }) => {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [playing, setPlaying] = useState(false);
-
-  useEffect(() => () => { audioRef.current?.pause(); }, []);
+const SnippetPlayer: React.FC<Props> = ({ trackName, artist, albumArt, previewUrl }) => {
+  const { play, currentSong, isPlaying } = usePlayer();
+  const playing = currentSong?.url === previewUrl && isPlaying;
 
   const toggle = () => {
     if (!previewUrl) return;
-    if (playing) {
-      audioRef.current?.pause();
-      setPlaying(false);
-      return;
-    }
-    if (!audioRef.current) audioRef.current = new Audio();
-    audioRef.current.src = previewUrl;
-    const start = (snippetStartMs ?? 0) / 1000;
-    const end = (snippetEndMs ?? 30_000) / 1000;
-    audioRef.current.currentTime = start;
-    const onTime = () => {
-      if (audioRef.current && audioRef.current.currentTime >= end) {
-        audioRef.current.pause();
-        audioRef.current.removeEventListener('timeupdate', onTime);
-        setPlaying(false);
-      }
-    };
-    audioRef.current.addEventListener('timeupdate', onTime);
-    audioRef.current.onended = () => setPlaying(false);
-    audioRef.current.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+    play({ url: previewUrl, name: trackName, artist, albumArt });
   };
 
   return (

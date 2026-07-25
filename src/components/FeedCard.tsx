@@ -1,6 +1,7 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Heart, MessageCircle, MapPin, Music, Play, Pause } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePlayer } from '@/contexts/PlayerContext';
 import { toggleLike, FeedItem } from '@/lib/social';
 import { timeAgo } from '@/lib/timeAgo';
 import CommentsSheet from './CommentsSheet';
@@ -29,20 +30,12 @@ const FeedCard = ({ item, onProfileTap, onUpdate, isTabActive }: Props) => {
   useEffect(() => {
     if (!isTabActive) { setShowComments(false); setShowLikes(false); }
   }, [isTabActive]);
-  const [songPlaying, setSongPlaying] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const { play, currentSong, isPlaying } = usePlayer();
+  const songPlaying = currentSong?.url === item.song_preview_url && isPlaying;
 
   const toggleSong = () => {
     if (!item.song_preview_url) return;
-    if (songPlaying) {
-      audioRef.current?.pause();
-      setSongPlaying(false);
-    } else {
-      if (!audioRef.current) audioRef.current = new Audio();
-      audioRef.current.src = item.song_preview_url;
-      audioRef.current.onended = () => setSongPlaying(false);
-      audioRef.current.play().then(() => setSongPlaying(true)).catch(() => {});
-    }
+    play({ url: item.song_preview_url, name: item.song_name ?? '', artist: item.song_artist ?? '', albumArt: item.song_album_art ?? null });
   };
 
   const [y, m, d] = item.date.split('-').map(Number);

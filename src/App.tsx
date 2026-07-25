@@ -3,6 +3,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as Sonner } from '@/components/ui/sonner';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { PlayerProvider } from '@/contexts/PlayerContext';
+import MiniPlayer from '@/components/MiniPlayer';
 import { Keyboard } from '@capacitor/keyboard';
 import { Capacitor } from '@capacitor/core';
 import SplashScreen from '@/components/SplashScreen';
@@ -101,6 +103,7 @@ const AppShell = () => {
           <ProfileTab isActive={activeTab === 'profile'} resetKey={resetKeys.profile} />
         </div>
       </div>
+      <MiniPlayer />
       <BottomNav active={activeTab} onChange={handleTabChange} />
     </div>
   );
@@ -109,9 +112,11 @@ const AppShell = () => {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <Toaster />
-      <Sonner />
-      <AppShell />
+      <PlayerProvider>
+        <Toaster />
+        <Sonner />
+        <AppShell />
+      </PlayerProvider>
     </AuthProvider>
   </QueryClientProvider>
 );

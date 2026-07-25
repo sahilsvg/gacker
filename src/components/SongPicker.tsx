@@ -1,6 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Play, Pause, X, Search, Loader2, Music } from 'lucide-react';
 import { CapacitorHttp } from '@capacitor/core';
+import { usePlayer } from '@/contexts/PlayerContext';
 
 export interface SongTrack {
   id: string;
@@ -46,8 +47,7 @@ const SongPicker = ({ value, onChange }: Props) => {
   const [results, setResults] = useState<SongTrack[]>([]);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState('');
-  const [playingId, setPlayingId] = useState<string | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const { play: globalPlay, stop: globalStop, currentSong, isPlaying } = usePlayer();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -71,35 +71,23 @@ const SongPicker = ({ value, onChange }: Props) => {
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [query]);
 
-  useEffect(() => () => { audioRef.current?.pause(); }, []);
+  // Stop preview when picker unmounts
+  useEffect(() => () => { globalStop(); }, []);
 
   const togglePreview = (track: SongTrack) => {
     if (!track.previewUrl) return;
-    if (playingId === track.id) {
-      audioRef.current?.pause();
-      setPlayingId(null);
-      return;
-    }
-    if (!audioRef.current) audioRef.current = new Audio();
-    audioRef.current.onended = () => setPlayingId(null);
-    audioRef.current.src = track.previewUrl;
-    audioRef.current.currentTime = 0;
-    audioRef.current.play()
-      .then(() => setPlayingId(track.id))
-      .catch(() => setPlayingId(null));
+    globalPlay({ url: track.previewUrl, name: track.name, artist: track.artist, albumArt: track.albumArt });
   };
 
   const selectTrack = (track: SongTrack) => {
-    audioRef.current?.pause();
-    setPlayingId(null);
+    globalStop();
     onChange({ track });
     setResults([]);
     setQuery('');
   };
 
   const clear = () => {
-    audioRef.current?.pause();
-    setPlayingId(null);
+    globalStop();
     onChange(null);
   };
 
@@ -164,7 +152,7 @@ const SongPicker = ({ value, onChange }: Props) => {
                   onPointerDown={e => { e.preventDefault(); togglePreview(track); }}
                   className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0 active:scale-95 transition-all"
                 >
-                  {playingId === track.id
+                  {currentSong?.url === track.previewUrl && isPlaying
                     ? <Pause size={13} className="text-foreground" />
                     : <Play size={13} className="text-foreground ml-0.5" />
                   }

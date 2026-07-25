@@ -1,7 +1,8 @@
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { X, Music, Play, Pause } from 'lucide-react';
 import { Entry } from '@/lib/entries';
 import { timeAgo } from '@/lib/timeAgo';
+import { usePlayer } from '@/contexts/PlayerContext';
 
 interface Props {
   dateKey: string;
@@ -10,11 +11,11 @@ interface Props {
 }
 
 const EntryDetailSheet = ({ dateKey, entry, onClose }: Props) => {
-  const [playing, setPlaying] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const { play: globalPlay, currentSong, isPlaying } = usePlayer();
+  const playing = currentSong?.url === entry.song_preview_url && isPlaying;
 
-  const handleClose = () => { stop(); setIsClosing(true); setTimeout(onClose, 210); };
+  const handleClose = () => { setIsClosing(true); setTimeout(onClose, 210); };
 
   const [y, m, d] = dateKey.split('-').map(Number);
   const dateObj = new Date(y, m - 1, d);
@@ -22,18 +23,8 @@ const EntryDetailSheet = ({ dateKey, entry, onClose }: Props) => {
 
   const togglePlay = () => {
     if (!entry.song_preview_url) return;
-    if (playing) {
-      audioRef.current?.pause();
-      setPlaying(false);
-    } else {
-      if (!audioRef.current) audioRef.current = new Audio();
-      audioRef.current.src = entry.song_preview_url;
-      audioRef.current.onended = () => setPlaying(false);
-      audioRef.current.play().then(() => setPlaying(true)).catch(() => {});
-    }
+    globalPlay({ url: entry.song_preview_url, name: entry.song_name ?? '', artist: entry.song_artist ?? '', albumArt: entry.song_album_art ?? null });
   };
-
-  const stop = () => { audioRef.current?.pause(); setPlaying(false); };
 
   return (
     <div className="fixed inset-0 z-[200] flex flex-col justify-end">
