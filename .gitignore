@@ -27,3 +27,4 @@ ios/App/App.xcworkspace/xcuserdata/
 # Logs
 *.log
 npm-debug.log*
+supabase/.temp/
