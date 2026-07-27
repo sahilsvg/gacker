@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Heart, MessageCircle, MapPin, Music, Play, Pause } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePlayer } from '@/contexts/PlayerContext';
 import { toggleLike, FeedItem } from '@/lib/social';
 import { timeAgo } from '@/lib/timeAgo';
+import { haptic } from '@/lib/haptics';
 import CommentsSheet from './CommentsSheet';
 import LikesSheet from './LikesSheet';
 
@@ -33,6 +34,13 @@ const FeedCard = ({ item, onProfileTap, onUpdate, isTabActive }: Props) => {
   const { play, currentSong, isPlaying } = usePlayer();
   const songPlaying = currentSong?.url === item.song_preview_url && isPlaying;
 
+  // Double-tap to like
+  const lastTapRef = useRef<number>(0);
+
+  // Long-press on like button to open likes sheet
+  const pressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isLongPressRef = useRef(false);
+
   const toggleSong = () => {
     if (!item.song_preview_url) return;
     play({ url: item.song_preview_url, name: item.song_name ?? '', artist: item.song_artist ?? '', albumArt: item.song_album_art ?? null });
@@ -43,14 +51,46 @@ const FeedCard = ({ item, onProfileTap, onUpdate, isTabActive }: Props) => {
 
   const handleLike = async () => {
     if (!user) return;
+    haptic.light();
     const newLiked = !item.iLiked;
     onUpdate(item.id, newLiked, item.likeCount + (newLiked ? 1 : -1));
     await toggleLike(user.id, item.id, item.iLiked, item.user_id);
   };
 
+  const handleCardTap = (e: React.PointerEvent) => {
+    if ((e.target as HTMLElement).closest('button, a')) return;
+    const now = Date.now();
+    if (now - lastTapRef.current < 350) {
+      if (!item.iLiked) {
+        haptic.medium();
+        handleLike();
+      }
+    }
+    lastTapRef.current = now;
+  };
+
+  const handleLikePointerDown = (e: React.PointerEvent) => {
+    e.preventDefault();
+    isLongPressRef.current = false;
+    pressTimerRef.current = setTimeout(() => {
+      isLongPressRef.current = true;
+      haptic.medium();
+      setShowLikes(true);
+    }, 500);
+  };
+
+  const handleLikePointerUp = () => {
+    if (pressTimerRef.current) { clearTimeout(pressTimerRef.current); pressTimerRef.current = null; }
+    if (!isLongPressRef.current) handleLike();
+  };
+
+  const handleLikePointerLeave = () => {
+    if (pressTimerRef.current) { clearTimeout(pressTimerRef.current); pressTimerRef.current = null; }
+  };
+
   return (
     <>
-      <div className="bg-card border border-border rounded-2xl p-4">
+      <div className="bg-card border border-border rounded-2xl p-4" onPointerDown={handleCardTap}>
         {/* Header */}
         <div className="flex items-center gap-3 mb-3">
           <button onClick={() => onProfileTap(item.user_id)} className="flex-shrink-0">
@@ -81,6 +121,18 @@ const FeedCard = ({ item, onProfileTap, onUpdate, isTabActive }: Props) => {
           <p className="text-sm text-foreground/80 leading-relaxed mb-3">{item.notes}</p>
         )}
 
+        {/* Photo */}
+        {item.image_url && (
+          <div className="rounded-xl overflow-hidden mb-3">
+            <img
+              src={item.image_url}
+              alt=""
+              className="w-full object-cover"
+              style={{ maxHeight: 240 }}
+            />
+          </div>
+        )}
+
         {/* Song */}
         {item.song_name && (
           <div className="flex items-center gap-3 bg-background border border-border/50 rounded-xl px-3 py-2.5 mb-3">
@@ -95,9 +147,9 @@ const FeedCard = ({ item, onProfileTap, onUpdate, isTabActive }: Props) => {
             {item.song_preview_url && (
               <button
                 onPointerDown={e => { e.preventDefault(); toggleSong(); }}
-                className="w-7 h-7 rounded-full bg-muted flex items-center justify-center flex-shrink-0 active:scale-95 transition-all"
+                className="w-11 h-11 rounded-full bg-muted flex items-center justify-center flex-shrink-0 active:scale-95 transition-all"
               >
-                {songPlaying ? <Pause size={11} className="text-foreground" /> : <Play size={11} className="text-foreground ml-0.5" />}
+                {songPlaying ? <Pause size={14} className="text-foreground" /> : <Play size={14} className="text-foreground ml-0.5" />}
               </button>
             )}
           </div>
@@ -112,28 +164,24 @@ const FeedCard = ({ item, onProfileTap, onUpdate, isTabActive }: Props) => {
         )}
 
         {/* Actions */}
-        <div className="flex items-center gap-4 pt-2 border-t border-border/50 mt-1">
+        <div className="flex items-center gap-2 border-t border-border/50 mt-1">
           <button
-            onPointerDown={e => { e.preventDefault(); handleLike(); }}
-            className={`flex items-center gap-1.5 text-sm transition-all active:scale-95 ${
+            onPointerDown={handleLikePointerDown}
+            onPointerUp={handleLikePointerUp}
+            onPointerLeave={handleLikePointerLeave}
+            onPointerCancel={handleLikePointerLeave}
+            className={`flex items-center gap-1.5 text-sm transition-all active:scale-95 py-3 px-2 ${
               item.iLiked ? 'text-red' : 'text-muted-foreground'
             }`}
           >
-            <Heart size={16} fill={item.iLiked ? 'currentColor' : 'none'} />
+            <Heart size={18} fill={item.iLiked ? 'currentColor' : 'none'} />
+            {item.likeCount > 0 && <span className="font-medium">{item.likeCount}</span>}
           </button>
-          {item.likeCount > 0 && (
-            <button
-              onPointerDown={e => { e.preventDefault(); setShowLikes(true); }}
-              className="text-sm text-muted-foreground font-medium -ml-3 active:opacity-60"
-            >
-              {item.likeCount}
-            </button>
-          )}
           <button
-            onPointerDown={e => { e.preventDefault(); setShowComments(true); }}
-            className="flex items-center gap-1.5 text-sm text-muted-foreground transition-all active:scale-95"
+            onPointerDown={e => { e.preventDefault(); haptic.light(); setShowComments(true); }}
+            className="flex items-center gap-1.5 text-sm text-muted-foreground transition-all active:scale-95 py-3 px-2"
           >
-            <MessageCircle size={16} />
+            <MessageCircle size={18} />
             {item.commentCount > 0 && <span className="font-medium">{item.commentCount}</span>}
           </button>
         </div>

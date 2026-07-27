@@ -1,9 +1,13 @@
 import React, { useEffect, useState, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { X, Send, Trash2 } from 'lucide-react';
+import { Keyboard } from '@capacitor/keyboard';
+import { Capacitor } from '@capacitor/core';
 import { useAuth } from '@/contexts/AuthContext';
 import { getComments, postComment, deleteComment, Comment } from '@/lib/social';
 import { timeAgo } from '@/lib/timeAgo';
+import { haptic } from '@/lib/haptics';
+import { useSwipeToDismiss } from '@/hooks/useSwipeToDismiss';
 
 interface Props {
   entryId: string;
@@ -28,12 +32,28 @@ const CommentsSheet = ({ entryId, entryOwnerId, onClose, onProfileTap }: Props) 
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState('');
   const [isClosing, setIsClosing] = useState(false);
+  const [kbHeight, setKbHeight] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const handleClose = () => {
     setIsClosing(true);
     setTimeout(onClose, 210);
   };
+
+  const { onTouchStart, onTouchEnd } = useSwipeToDismiss(handleClose, scrollRef);
+
+  // Keyboard avoidance
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    let showListener: Awaited<ReturnType<typeof Keyboard.addListener>>;
+    let hideListener: Awaited<ReturnType<typeof Keyboard.addListener>>;
+    Keyboard.addListener('keyboardWillShow', info => setKbHeight(info.keyboardHeight))
+      .then(l => { showListener = l; });
+    Keyboard.addListener('keyboardWillHide', () => setKbHeight(0))
+      .then(l => { hideListener = l; });
+    return () => { showListener?.remove(); hideListener?.remove(); };
+  }, []);
 
   const load = async () => {
     const data = await getComments(entryId);
@@ -46,6 +66,7 @@ const CommentsSheet = ({ entryId, entryOwnerId, onClose, onProfileTap }: Props) 
 
   const handlePost = async () => {
     if (!user || !body.trim() || posting) return;
+    haptic.light();
     setPosting(true);
     setError('');
     const err = await postComment(user.id, entryId, body.trim(), entryOwnerId);
@@ -64,17 +85,29 @@ const CommentsSheet = ({ entryId, entryOwnerId, onClose, onProfileTap }: Props) 
     setComments(prev => prev.filter(c => c.id !== commentId));
   };
 
+  const sheetMaxHeight = kbHeight > 0 ? `calc(100dvh - ${kbHeight}px - 40px)` : '70vh';
+  const sheetPadding = kbHeight > 0 ? '8px' : 'env(safe-area-inset-bottom)';
+
   const sheet = (
     <div className="fixed inset-0 z-[200]">
       <div className="absolute inset-0 bg-black/60" onClick={handleClose} />
-      <div className={`absolute bottom-0 left-0 right-0 bg-card rounded-t-3xl flex flex-col ${isClosing ? 'animate-slide-down' : 'animate-slide-up'}`} style={{ maxHeight: '70vh', paddingBottom: 'env(safe-area-inset-bottom)' }}>
-
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <h3 className="font-semibold text-foreground">Comments</h3>
-          <button onClick={handleClose} className="text-muted-foreground p-1"><X size={20} /></button>
+      <div
+        className={`absolute bottom-0 left-0 right-0 bg-card rounded-t-3xl flex flex-col ${isClosing ? 'animate-slide-down' : 'animate-slide-up'}`}
+        style={{ maxHeight: sheetMaxHeight, paddingBottom: sheetPadding, transition: 'max-height 0.25s ease, padding-bottom 0.25s ease' }}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+      >
+        {/* Drag handle */}
+        <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
+          <div className="w-10 h-1 rounded-full bg-border" />
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 pt-3 pb-2 space-y-4">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border flex-shrink-0">
+          <h3 className="font-semibold text-foreground">Comments</h3>
+          <button onClick={handleClose} className="text-muted-foreground p-3 -mr-3"><X size={20} /></button>
+        </div>
+
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 pt-3 pb-2 space-y-4">
           {loading && <p className="text-muted-foreground text-sm text-center py-4">Loading…</p>}
           {!loading && comments.length === 0 && (
             <p className="text-muted-foreground text-sm text-center py-8">No comments yet. Be the first.</p>
@@ -93,7 +126,7 @@ const CommentsSheet = ({ entryId, entryOwnerId, onClose, onProfileTap }: Props) 
                 <p className="text-[10px] text-muted-foreground/60 mt-0.5">{timeAgo(c.created_at)}</p>
               </div>
               {c.user_id === user?.id && (
-                <button onClick={() => handleDelete(c.id)} className="text-muted-foreground hover:text-red transition-colors flex-shrink-0 p-1">
+                <button onClick={() => handleDelete(c.id)} className="text-muted-foreground hover:text-red transition-colors flex-shrink-0 p-3 -mr-3">
                   <Trash2 size={14} />
                 </button>
               )}
@@ -104,7 +137,7 @@ const CommentsSheet = ({ entryId, entryOwnerId, onClose, onProfileTap }: Props) 
 
         {error && <p className="text-red text-xs text-center pb-1">{error}</p>}
 
-        <div className="px-5 py-3 border-t border-border flex gap-3 items-center">
+        <div className="px-5 py-3 border-t border-border flex gap-3 items-center flex-shrink-0">
           <input
             value={body}
             onChange={e => setBody(e.target.value)}

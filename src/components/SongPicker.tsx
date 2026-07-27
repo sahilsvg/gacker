@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Play, Pause, X, Search, Loader2, Music } from 'lucide-react';
+import { Play, Pause, X, Search, Loader2, Music, Square } from 'lucide-react';
 import { CapacitorHttp } from '@capacitor/core';
 import { usePlayer } from '@/contexts/PlayerContext';
 
@@ -92,6 +92,7 @@ const SongPicker = ({ value, onChange }: Props) => {
   };
 
   if (value) {
+    const selectedPlaying = currentSong?.url === value.track.previewUrl && isPlaying;
     return (
       <div className="flex items-center gap-3 bg-card border border-border rounded-2xl px-4 py-3">
         {value.track.albumArt
@@ -104,7 +105,18 @@ const SongPicker = ({ value, onChange }: Props) => {
           <p className="text-sm font-semibold text-foreground truncate">{value.track.name}</p>
           <p className="text-xs text-muted-foreground truncate">{value.track.artist}</p>
         </div>
-        <button onPointerDown={e => { e.preventDefault(); clear(); }} className="text-muted-foreground p-0.5 flex-shrink-0">
+        {value.track.previewUrl && (
+          <button
+            onPointerDown={e => { e.preventDefault(); togglePreview(value.track); }}
+            className="w-9 h-9 rounded-full bg-muted flex items-center justify-center flex-shrink-0 active:scale-95 transition-all"
+          >
+            {selectedPlaying
+              ? <Pause size={13} className="text-foreground" />
+              : <Play size={13} className="text-foreground ml-0.5" />
+            }
+          </button>
+        )}
+        <button onPointerDown={e => { e.preventDefault(); clear(); }} className="text-muted-foreground p-1 flex-shrink-0">
           <X size={15} />
         </button>
       </div>
@@ -150,11 +162,11 @@ const SongPicker = ({ value, onChange }: Props) => {
               {track.previewUrl && (
                 <button
                   onPointerDown={e => { e.preventDefault(); togglePreview(track); }}
-                  className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0 active:scale-95 transition-all"
+                  className="w-11 h-11 rounded-full bg-muted flex items-center justify-center flex-shrink-0 active:scale-95 transition-all"
                 >
                   {currentSong?.url === track.previewUrl && isPlaying
-                    ? <Pause size={13} className="text-foreground" />
-                    : <Play size={13} className="text-foreground ml-0.5" />
+                    ? <Pause size={15} className="text-foreground" />
+                    : <Play size={15} className="text-foreground ml-0.5" />
                   }
                 </button>
               )}

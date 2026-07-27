@@ -1,5 +1,4 @@
 import React from 'react';
-import { Button } from '@/components/ui/button';
 import { Play, Pause } from 'lucide-react';
 import { usePlayer } from '@/contexts/PlayerContext';
 
@@ -31,16 +30,15 @@ const SnippetPlayer: React.FC<Props> = ({ trackName, artist, albumArt, previewUr
         <div className="text-sm font-medium text-foreground truncate">{trackName}</div>
         <div className="text-xs text-muted-foreground truncate">{artist}</div>
       </div>
-      <Button
+      <button
         type="button"
-        size="icon"
-        variant="outline"
-        onClick={toggle}
+        onPointerDown={e => { e.preventDefault(); toggle(); }}
         disabled={!previewUrl}
         title={previewUrl ? 'Play snippet' : 'No preview available'}
+        className="w-11 h-11 rounded-full bg-muted border border-border flex items-center justify-center flex-shrink-0 active:scale-95 transition-all disabled:opacity-40"
       >
-        {playing ? <Pause size={14} /> : <Play size={14} />}
-      </Button>
+        {playing ? <Pause size={15} /> : <Play size={15} className="ml-0.5" />}
+      </button>
     </div>
   );
 };

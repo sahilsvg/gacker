@@ -15,6 +15,7 @@ export interface FeedItem {
   song_artist?: string | null;
   song_album_art?: string | null;
   song_preview_url?: string | null;
+  image_url?: string | null;
   profile: { id: string; name: string; handle: string; avatar_url: string | null };
   likeCount: number;
   iLiked: boolean;

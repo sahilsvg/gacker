@@ -58,8 +58,8 @@ const UserProfile = ({ userId, onBack }: Props) => {
     <div className="flex flex-col h-full tab-bar-padding animate-slide-in-right">
       {/* Nav */}
       <div className="flex items-center gap-3 px-5 pb-4">
-        <button onClick={onBack} className="flex items-center gap-1.5 text-muted-foreground text-sm">
-          <ArrowLeft size={16} /> Back
+        <button onClick={onBack} className="flex items-center gap-1.5 text-muted-foreground text-sm py-3 pr-4 -ml-1">
+          <ArrowLeft size={20} /> Back
         </button>
       </div>
 

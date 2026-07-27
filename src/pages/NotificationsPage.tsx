@@ -3,6 +3,7 @@ import { ArrowLeft, Bell } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getNotifications, markAllRead, AppNotification, NotificationType } from '@/lib/notifications';
 import { timeAgo } from '@/lib/timeAgo';
+import { useSwipeToDismiss } from '@/hooks/useSwipeToDismiss';
 
 interface Props {
   onClose: () => void;
@@ -49,6 +50,7 @@ const NotificationsPage = ({ onClose }: Props) => {
   const { user } = useAuth();
   const [notifs, setNotifs] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
+  const { onTouchStart, onTouchEnd } = useSwipeToDismiss(onClose);
 
   useEffect(() => {
     if (!user) return;
@@ -64,13 +66,13 @@ const NotificationsPage = ({ onClose }: Props) => {
       className="fixed inset-0 bg-background flex flex-col z-[300] animate-slide-up"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
-      {/* Header */}
-      <div className="flex items-center px-5 pt-6 pb-4 border-b border-border">
+      {/* Header — swipe down here to dismiss */}
+      <div className="flex items-center px-5 pt-6 pb-4 border-b border-border" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         <button
           onPointerDown={e => { e.preventDefault(); onClose(); }}
-          className="flex items-center gap-1.5 text-muted-foreground text-sm active:opacity-60 transition-opacity mr-4"
+          className="flex items-center gap-1.5 text-muted-foreground text-sm active:opacity-60 transition-opacity py-3 pr-4 -ml-1"
         >
-          <ArrowLeft size={16} />
+          <ArrowLeft size={20} />
         </button>
         <h2 className="font-semibold text-foreground text-base">Notifications</h2>
       </div>

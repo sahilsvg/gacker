@@ -14,6 +14,7 @@ export interface Entry {
   song_artist?: string | null;
   song_album_art?: string | null;
   song_preview_url?: string | null;
+  image_url?: string | null;
 }
 
 export const formatDateKey = (d: Date): string => {
@@ -26,7 +27,7 @@ export const formatDateKey = (d: Date): string => {
 export const fetchEntries = async (userId: string): Promise<Record<string, Entry>> => {
   const { data } = await supabase
     .from('entries')
-    .select('date, clean, notes, latitude, longitude, location_name, song_name, song_artist, song_album_art, song_preview_url')
+    .select('date, clean, notes, created_at, latitude, longitude, location_name, song_name, song_artist, song_album_art, song_preview_url, image_url')
     .eq('user_id', userId);
   const map: Record<string, Entry> = {};
   (data ?? []).forEach((row: Entry) => { map[row.date] = row; });
@@ -40,6 +41,7 @@ export const upsertEntry = async (
   notes: string,
   location?: LocationValue | null,
   song?: SongSelection | null,
+  imageUrl?: string | null,
 ) => {
   await supabase.from('entries').upsert(
     {
@@ -54,6 +56,7 @@ export const upsertEntry = async (
       song_artist: song?.track.artist ?? null,
       song_album_art: song?.track.albumArt ?? null,
       song_preview_url: song?.track.previewUrl ?? null,
+      image_url: imageUrl !== undefined ? imageUrl : null,
     },
     { onConflict: 'user_id,date' }
   );
