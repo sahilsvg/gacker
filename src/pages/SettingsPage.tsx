@@ -3,6 +3,8 @@ import { X, Camera, Loader2, ChevronRight, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { validateHandle, validateName, sanitizeHandle, sanitizeName } from '@/lib/validation';
+import { useSwipeToDismiss } from '@/hooks/useSwipeToDismiss';
+import ImageCropper from '@/components/ImageCropper';
 
 interface Props {
   onClose: () => void;
@@ -13,6 +15,8 @@ const SettingsPage = ({ onClose }: Props) => {
 
   // Avatar
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarCropSrc, setAvatarCropSrc] = useState<string | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   // Name
   const [editingName, setEditingName] = useState(false);
@@ -28,18 +32,31 @@ const SettingsPage = ({ onClose }: Props) => {
   const [handleAvailable, setHandleAvailable] = useState<boolean | null>(null);
   const handleCheckRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user) return;
+    if (!file) return;
+    const objectUrl = URL.createObjectURL(file);
+    setAvatarCropSrc(objectUrl);
+    e.target.value = '';
+  };
+
+  const handleAvatarCrop = async (blob: Blob) => {
+    if (avatarCropSrc) URL.revokeObjectURL(avatarCropSrc);
+    setAvatarCropSrc(null);
+    if (!user) return;
     setAvatarUploading(true);
-    const ext = file.name.split('.').pop();
-    const path = `${user.id}/avatar.${ext}`;
-    await supabase.storage.from('avatars').upload(path, file, { upsert: true });
+    const path = `${user.id}/avatar.jpg`;
+    await supabase.storage.from('avatars').upload(path, blob, { contentType: 'image/jpeg', upsert: true });
     const { data } = supabase.storage.from('avatars').getPublicUrl(path);
     const url = `${data.publicUrl}?t=${Date.now()}`;
     await supabase.from('profiles').update({ avatar_url: url }).eq('id', user.id);
     await refreshProfile();
     setAvatarUploading(false);
+  };
+
+  const handleAvatarCropCancel = () => {
+    if (avatarCropSrc) URL.revokeObjectURL(avatarCropSrc);
+    setAvatarCropSrc(null);
   };
 
   const saveName = async () => {
@@ -100,15 +117,30 @@ const SettingsPage = ({ onClose }: Props) => {
 
   const phone = user?.phone ?? '—';
 
+  const { onTouchStart, onTouchEnd } = useSwipeToDismiss(onClose);
+
   return (
+    <>
+    {avatarCropSrc && (
+      <ImageCropper
+        src={avatarCropSrc}
+        shape="circle"
+        onCrop={handleAvatarCrop}
+        onCancel={handleAvatarCropCancel}
+      />
+    )}
     <div
       className="fixed inset-0 bg-background flex flex-col z-[300] animate-slide-up"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between px-5 pt-6 pb-4 border-b border-border">
+      {/* Header — swipe down here to dismiss */}
+      <div
+        className="flex items-center justify-between px-5 pt-6 pb-4 border-b border-border"
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+      >
         <h2 className="font-semibold text-foreground text-lg">Settings</h2>
-        <button onPointerDown={e => { e.preventDefault(); onClose(); }} className="text-muted-foreground active:opacity-60">
+        <button onPointerDown={e => { e.preventDefault(); onClose(); }} className="text-muted-foreground active:opacity-60 p-3 -mr-3">
           <X size={20} />
         </button>
       </div>
@@ -118,7 +150,11 @@ const SettingsPage = ({ onClose }: Props) => {
         {/* Profile picture */}
         <Section label="Profile">
           <div className="flex items-center gap-4 px-4 py-4">
-            <label className="relative w-16 h-16 flex-shrink-0 cursor-pointer">
+            <button
+              onPointerDown={e => { e.preventDefault(); avatarInputRef.current?.click(); }}
+              className="relative w-16 h-16 flex-shrink-0"
+              disabled={avatarUploading}
+            >
               <div className="w-16 h-16 rounded-full bg-muted border border-border overflow-hidden">
                 {profile?.avatar_url
                   ? <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
@@ -130,8 +166,8 @@ const SettingsPage = ({ onClose }: Props) => {
               <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-clean flex items-center justify-center shadow-md pointer-events-none">
                 {avatarUploading ? <Loader2 size={11} className="animate-spin text-clean-foreground" /> : <Camera size={11} className="text-clean-foreground" />}
               </div>
-              <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
-            </label>
+              <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarFileSelect} />
+            </button>
             <div>
               <p className="font-semibold text-foreground">{profile?.name}</p>
               <p className="text-sm text-muted-foreground">@{profile?.handle}</p>
@@ -261,6 +297,7 @@ const SettingsPage = ({ onClose }: Props) => {
         </div>
       )}
     </div>
+    </>
   );
 };
 

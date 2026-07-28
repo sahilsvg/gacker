@@ -3,8 +3,8 @@ import { ArrowLeft, UserPlus, UserCheck, Clock } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserProfile, getFollowStatus, FollowStatus, followUser, unfollowUser, getFollowerCounts } from '@/lib/social';
 import { fetchEntries, computeStats, Entry } from '@/lib/entries';
-import CalendarView from '@/components/CalendarView';
-import EntryDetailSheet from '@/components/EntryDetailSheet';
+import ProfileTabs from '@/components/ProfileTabs';
+import FollowListSheet from '@/components/FollowListSheet';
 
 interface Props {
   userId: string;
@@ -19,7 +19,9 @@ const UserProfile = ({ userId, onBack }: Props) => {
   const [followStatus, setFollowStatus] = useState<FollowStatus>('none');
   const [counts, setCounts] = useState({ followers: 0, following: 0 });
   const [loading, setLoading] = useState(true);
-  const [entryDetail, setEntryDetail] = useState<{ dateKey: string; entry: Entry } | null>(null);
+  const [followSheet, setFollowSheet] = useState<'followers' | 'following' | null>(null);
+
+  const canSeeContent = isOwnProfile || followStatus === 'accepted';
 
   useEffect(() => {
     if (!user) return;
@@ -54,12 +56,20 @@ const UserProfile = ({ userId, onBack }: Props) => {
 
   const { streak, cleanDays, redDays } = computeStats(entries);
 
+  const handleProfileTap = (tappedId: string) => {
+    // If they tap their own profile from within this list, go back
+    if (tappedId === userId) { setFollowSheet(null); return; }
+    // Otherwise navigate — parent handles this by re-rendering UserProfile with new userId
+    // For now close sheet; full navigation handled by the parent stack
+    setFollowSheet(null);
+  };
+
   return (
     <div className="flex flex-col h-full tab-bar-padding animate-slide-in-right">
       {/* Nav */}
       <div className="flex items-center gap-3 px-5 pb-4">
-        <button onClick={onBack} className="flex items-center gap-1.5 text-muted-foreground text-sm">
-          <ArrowLeft size={16} /> Back
+        <button onClick={onBack} className="flex items-center gap-1.5 text-muted-foreground text-sm py-3 pr-4 -ml-1">
+          <ArrowLeft size={20} /> Back
         </button>
       </div>
 
@@ -84,7 +94,7 @@ const UserProfile = ({ userId, onBack }: Props) => {
                 <h2 className="font-semibold text-foreground text-lg leading-tight truncate">{profile?.name}</h2>
                 <p className="text-sm text-muted-foreground">@{profile?.handle}</p>
               </div>
-              {user?.id !== userId && (
+              {!isOwnProfile && (
                 <button
                   onPointerDown={e => { e.preventDefault(); handleFollow(); }}
                   className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all active:scale-95 ${
@@ -102,58 +112,64 @@ const UserProfile = ({ userId, onBack }: Props) => {
               )}
             </div>
 
-            {/* Follower counts */}
+            {/* Follower counts — tappable only if accepted or own profile */}
             <div className="flex gap-5 mb-6">
-              <div>
+              <button
+                onPointerDown={e => { e.preventDefault(); if (canSeeContent) setFollowSheet('followers'); }}
+                className={`text-left ${canSeeContent ? 'active:opacity-60 transition-opacity' : 'cursor-default'}`}
+              >
                 <span className="font-semibold text-foreground text-sm">{counts.followers}</span>
                 <span className="text-muted-foreground text-sm ml-1.5">Followers</span>
-              </div>
-              <div>
+              </button>
+              <button
+                onPointerDown={e => { e.preventDefault(); if (canSeeContent) setFollowSheet('following'); }}
+                className={`text-left ${canSeeContent ? 'active:opacity-60 transition-opacity' : 'cursor-default'}`}
+              >
                 <span className="font-semibold text-foreground text-sm">{counts.following}</span>
                 <span className="text-muted-foreground text-sm ml-1.5">Following</span>
-              </div>
+              </button>
             </div>
 
             {/* Stats */}
             <div className="grid grid-cols-3 gap-3 mb-8">
               <div className="bg-card border border-border rounded-2xl p-4 text-center">
-                <div className="font-mono-stats text-2xl font-medium text-clean">{(isOwnProfile || followStatus === 'accepted') ? streak : '—'}</div>
+                <div className="font-mono-stats text-2xl font-medium text-clean">{canSeeContent ? streak : '—'}</div>
                 <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mt-1">Streak</div>
               </div>
               <div className="bg-card border border-border rounded-2xl p-4 text-center">
-                <div className="font-mono-stats text-2xl font-medium text-clean">{(isOwnProfile || followStatus === 'accepted') ? cleanDays : '—'}</div>
+                <div className="font-mono-stats text-2xl font-medium text-clean">{canSeeContent ? cleanDays : '—'}</div>
                 <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mt-1">Clean</div>
               </div>
               <div className="bg-card border border-border rounded-2xl p-4 text-center">
-                <div className="font-mono-stats text-2xl font-medium text-red">{(isOwnProfile || followStatus === 'accepted') ? redDays : '—'}</div>
+                <div className="font-mono-stats text-2xl font-medium text-red">{canSeeContent ? redDays : '—'}</div>
                 <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mt-1">Red Days</div>
               </div>
             </div>
 
-            {/* Calendar — shown to self and accepted followers */}
-            {(isOwnProfile || followStatus === 'accepted') ? (
-              <CalendarView
+            {/* Sub-tabs */}
+            {user && (
+              <ProfileTabs
                 entries={entries}
-                onDayTap={(dateKey, entry) => setEntryDetail({ dateKey, entry })}
+                currentUserId={user.id}
+                canSeeContent={canSeeContent}
+                lockedMessage={
+                  followStatus === 'pending'
+                    ? `Follow request sent. You'll see ${profile?.name?.split(' ')[0]}'s history once they approve it.`
+                    : `Follow ${profile?.name?.split(' ')[0]} to see their history.`
+                }
               />
-            ) : (
-              <div className="bg-card border border-border rounded-2xl p-6 text-center">
-                {followStatus === 'pending' ? (
-                  <p className="text-muted-foreground text-sm">Follow request sent. You'll see {profile?.name?.split(' ')[0]}'s history once they approve it.</p>
-                ) : (
-                  <p className="text-muted-foreground text-sm">Follow {profile?.name?.split(' ')[0]} to see their history.</p>
-                )}
-              </div>
             )}
           </>
         )}
       </div>
 
-      {entryDetail && (
-        <EntryDetailSheet
-          dateKey={entryDetail.dateKey}
-          entry={entryDetail.entry}
-          onClose={() => setEntryDetail(null)}
+      {followSheet && user && (
+        <FollowListSheet
+          userId={userId}
+          type={followSheet}
+          currentUserId={user.id}
+          onClose={() => setFollowSheet(null)}
+          onProfileTap={handleProfileTap}
         />
       )}
     </div>

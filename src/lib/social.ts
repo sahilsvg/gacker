@@ -15,6 +15,7 @@ export interface FeedItem {
   song_artist?: string | null;
   song_album_art?: string | null;
   song_preview_url?: string | null;
+  image_url?: string | null;
   profile: { id: string; name: string; handle: string; avatar_url: string | null };
   likeCount: number;
   iLiked: boolean;
@@ -25,9 +26,13 @@ export interface Comment {
   id: string;
   user_id: string;
   entry_id: string;
+  parent_comment_id: string | null;
   body: string;
   created_at: string;
+  like_count: number;
+  i_liked: boolean;
   profile: { name: string; handle: string; avatar_url: string | null };
+  replies: Comment[];
 }
 
 export interface SearchProfile {
@@ -111,29 +116,133 @@ export const toggleLike = async (userId: string, entryId: string, iLiked: boolea
   }
 };
 
-export const getComments = async (entryId: string): Promise<Comment[]> => {
-  const { data: comments } = await supabase
+export const getComments = async (entryId: string, currentUserId?: string): Promise<Comment[]> => {
+  const { data: rows } = await supabase
     .from('comments')
-    .select('id, user_id, entry_id, body, created_at')
+    .select('id, user_id, entry_id, parent_comment_id, body, created_at')
     .eq('entry_id', entryId)
     .order('created_at', { ascending: true });
 
-  if (!comments || comments.length === 0) return [];
+  if (!rows || rows.length === 0) return [];
 
-  const userIds = [...new Set(comments.map(c => c.user_id))];
-  const { data: profiles } = await supabase
-    .from('profiles')
-    .select('id, name, handle, avatar_url')
-    .in('id', userIds);
+  const commentIds = rows.map(c => c.id);
+  const userIds = [...new Set(rows.map(c => c.user_id))];
 
-  const profileMap = Object.fromEntries((profiles ?? []).map(p => [p.id, p]));
-  return comments.map(c => ({ ...c, profile: profileMap[c.user_id] }));
+  const [profilesRes, likesRes, myLikesRes] = await Promise.all([
+    supabase.from('profiles').select('id, name, handle, avatar_url').in('id', userIds),
+    supabase.from('comment_likes').select('comment_id').in('comment_id', commentIds),
+    currentUserId
+      ? supabase.from('comment_likes').select('comment_id').eq('user_id', currentUserId).in('comment_id', commentIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const profileMap = Object.fromEntries((profilesRes.data ?? []).map(p => [p.id, p]));
+  const likeCountMap: Record<string, number> = {};
+  (likesRes.data ?? []).forEach(l => { likeCountMap[l.comment_id] = (likeCountMap[l.comment_id] ?? 0) + 1; });
+  const myLikedSet = new Set((myLikesRes.data ?? []).map((l: any) => l.comment_id));
+
+  const enriched: Comment[] = rows.map(c => ({
+    ...c,
+    profile: profileMap[c.user_id],
+    like_count: likeCountMap[c.id] ?? 0,
+    i_liked: myLikedSet.has(c.id),
+    replies: [],
+  }));
+
+  // Nest replies under their parent (one level only)
+  const rootComments: Comment[] = [];
+  const byId: Record<string, Comment> = {};
+  enriched.forEach(c => { byId[c.id] = c; });
+  enriched.forEach(c => {
+    if (c.parent_comment_id && byId[c.parent_comment_id]) {
+      byId[c.parent_comment_id].replies.push(c);
+    } else {
+      rootComments.push(c);
+    }
+  });
+  return rootComments;
 };
 
-export const postComment = async (userId: string, entryId: string, body: string, entryOwnerId?: string): Promise<string | null> => {
-  const { error } = await supabase.from('comments').insert({ user_id: userId, entry_id: entryId, body });
-  if (!error && entryOwnerId) createNotification(entryOwnerId, 'comment', userId, { entry_id: entryId, body: body.slice(0, 80) });
-  return error?.message ?? null;
+export const postComment = async (
+  userId: string,
+  entryId: string,
+  body: string,
+  opts: {
+    entryOwnerId?: string;
+    parentCommentId?: string | null;
+    parentCommentOwnerId?: string | null;
+    mentionedUserIds?: string[];
+  } = {}
+): Promise<string | null> => {
+  const { entryOwnerId, parentCommentId, parentCommentOwnerId, mentionedUserIds = [] } = opts;
+  const { data: inserted, error } = await supabase
+    .from('comments')
+    .insert({ user_id: userId, entry_id: entryId, body, parent_comment_id: parentCommentId ?? null })
+    .select('id')
+    .single();
+  if (error) return error.message;
+
+  const commentId = inserted.id;
+  const notified = new Set<string>();
+
+  // Reply notification takes priority over mention for the parent comment owner
+  if (parentCommentOwnerId && parentCommentOwnerId !== userId) {
+    createNotification(parentCommentOwnerId, 'comment_reply', userId, { entry_id: entryId, comment_id: commentId, body: body.slice(0, 80) });
+    notified.add(parentCommentOwnerId);
+  }
+
+  // Mention notifications (skip if already sent a reply notif to this user)
+  const mentionTargets = mentionedUserIds.filter(id => id !== userId && !notified.has(id));
+  if (mentionTargets.length > 0) {
+    await supabase.from('mentions').insert(mentionTargets.map(uid => ({
+      mentioned_user_id: uid, comment_id: commentId, entry_id: entryId, actor_id: userId,
+    })));
+    for (const uid of mentionTargets) {
+      createNotification(uid, 'mention_comment', userId, { entry_id: entryId, comment_id: commentId, body: body.slice(0, 80) });
+      notified.add(uid);
+    }
+  }
+
+  // Entry owner notification (plain comment, only if not already notified above)
+  if (entryOwnerId && !notified.has(entryOwnerId) && entryOwnerId !== userId) {
+    createNotification(entryOwnerId, 'comment', userId, { entry_id: entryId, comment_id: commentId, body: body.slice(0, 80) });
+  }
+
+  return null;
+};
+
+export const toggleCommentLike = async (userId: string, commentId: string, commentOwnerId: string, iLiked: boolean) => {
+  if (iLiked) {
+    await supabase.from('comment_likes').delete().eq('user_id', userId).eq('comment_id', commentId);
+  } else {
+    await supabase.from('comment_likes').insert({ user_id: userId, comment_id: commentId });
+    createNotification(commentOwnerId, 'comment_like', userId, { comment_id: commentId });
+  }
+};
+
+// Resolve @handles in text to user IDs (for mention notifications)
+export const resolveHandles = async (handles: string[]): Promise<Record<string, string>> => {
+  if (handles.length === 0) return {};
+  const { data } = await supabase.from('profiles').select('id, handle').in('handle', handles);
+  return Object.fromEntries((data ?? []).map(p => [p.handle, p.id]));
+};
+
+// Search followed users by handle prefix for @mention autocomplete
+export const searchFollowedByHandle = async (currentUserId: string, prefix: string): Promise<SearchProfile[]> => {
+  const { data: follows } = await supabase
+    .from('follows')
+    .select('following_id')
+    .eq('follower_id', currentUserId)
+    .eq('status', 'accepted');
+  const ids = (follows ?? []).map(f => f.following_id);
+  if (ids.length === 0) return [];
+  const { data } = await supabase
+    .from('profiles')
+    .select('id, name, handle, avatar_url')
+    .in('id', ids)
+    .ilike('handle', `${prefix}%`)
+    .limit(5);
+  return data ?? [];
 };
 
 export const getLikes = async (entryId: string): Promise<SearchProfile[]> => {

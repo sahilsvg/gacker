@@ -1,5 +1,6 @@
 import React from 'react';
 import { Plus, Users, BarChart2, User } from 'lucide-react';
+import { haptic } from '@/lib/haptics';
 
 export type Tab = 'log' | 'feed' | 'ganalytics' | 'profile';
 
@@ -24,7 +25,7 @@ const BottomNav = ({ active, onChange }: Props) => (
       {tabs.map(t => (
         <button
           key={t.id}
-          onClick={() => onChange(t.id)}
+          onClick={() => { haptic.light(); onChange(t.id); }}
           className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors ${
             active === t.id
               ? t.id === 'log'

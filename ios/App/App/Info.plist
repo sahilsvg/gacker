@@ -2,7 +2,13 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>NSAppTransportSecurity</key>
+	<key>NSCameraUsageDescription</key>
+	<string>Used to take photos for your daily log entries.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Used to select photos for your daily log entries.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Used to save photos to your library.</string>
+	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
@@ -40,8 +46,6 @@
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 <key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>

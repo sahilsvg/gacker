@@ -1,5 +1,4 @@
-import React, { useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
 import { formatDateKey, Entry } from '@/lib/entries';
 
 interface Props {
@@ -8,12 +7,13 @@ interface Props {
 }
 
 const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+// First day of the launch month — can't swipe before this
+const LAUNCH_MONTH = new Date(2026, 5, 1);
+LAUNCH_MONTH.setHours(0, 0, 0, 0);
 
 const buildMonth = (year: number, month: number): Date[] => {
-  const days: Date[] = [];
   const total = new Date(year, month + 1, 0).getDate();
-  for (let d = 1; d <= total; d++) days.push(new Date(year, month, d));
-  return days;
+  return Array.from({ length: total }, (_, i) => new Date(year, month, i + 1));
 };
 
 const LAUNCH_DATE = new Date(2026, 5, 27);
@@ -29,21 +29,20 @@ const MonthGrid = ({
 }) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-
   const dates = buildMonth(year, month);
   const firstDow = dates[0].getDay();
   const label = dates[0].toLocaleString('en-US', { month: 'long', year: 'numeric' });
 
   return (
-    <div className="mb-8">
-      <p className="text-sm font-semibold text-foreground mb-3">{label}</p>
+    <div>
+      <p className="text-sm font-semibold text-foreground text-center mb-3">{label}</p>
       <div className="grid grid-cols-7 gap-1 text-center mb-1">
         {DAYS.map((d, i) => (
           <div key={i} className="text-[10px] text-muted-foreground font-medium">{d}</div>
         ))}
       </div>
       <div className="grid grid-cols-7 gap-1">
-        {Array.from({ length: firstDow }).map((_, i) => <div key={`blank-${i}`} />)}
+        {Array.from({ length: firstDow }).map((_, i) => <div key={`b${i}`} />)}
         {dates.map(d => {
           const key = formatDateKey(d);
           const isFuture = d > today;
@@ -53,7 +52,6 @@ const MonthGrid = ({
 
           let cellClass = '';
           let symbol = '';
-
           if (isPreLaunch) {
             cellClass = 'bg-muted/15 border border-border/20 text-muted-foreground/25';
             symbol = '✗';
@@ -63,7 +61,7 @@ const MonthGrid = ({
           } else if (entry?.clean) {
             cellClass = 'bg-clean text-clean-foreground shadow-[0_0_8px_hsl(142_71%_45%/0.35)]';
             symbol = '✓';
-          } else if (entry && !entry.clean) {
+          } else if (entry) {
             cellClass = 'bg-red text-red-foreground shadow-[0_0_8px_hsl(0_84%_60%/0.3)]';
             symbol = '✗';
           } else {
@@ -78,7 +76,7 @@ const MonthGrid = ({
                 onPointerDown={e => {
                   if (!tappable || !entry) return;
                   e.preventDefault();
-                  onDayTap(key, entry);
+                  onDayTap!(key, entry);
                 }}
                 className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold transition-all ${cellClass} ${tappable ? 'active:scale-90' : ''}`}
               >
@@ -93,45 +91,136 @@ const MonthGrid = ({
 };
 
 const CalendarView = ({ entries, onDayTap }: Props) => {
-  const [historyOpen, setHistoryOpen] = useState(false);
-
   const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth();
+  const [monthOffset, setMonthOffset] = useState(0);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
 
-  const pastMonths: { year: number; month: number }[] = [];
-  let y = currentYear;
-  let m = currentMonth - 1;
-  const limit = currentYear - 5;
-  while (y > limit) {
-    const daysInMonth = new Date(y, m + 1, 0).getDate();
-    const hasEntry = Array.from({ length: daysInMonth }, (_, i) =>
-      formatDateKey(new Date(y, m, i + 1))
-    ).some(key => key in entries);
-    if (hasEntry) pastMonths.push({ year: y, month: m });
-    m--;
-    if (m < 0) { m = 11; y--; }
-  }
+  // Boundary refs — updated every render, read by the single-mount gesture effect
+  const canGoPrevRef = useRef(false);
+  const canGoNextRef = useRef(false);
+
+  const getDate = (off: number) => new Date(now.getFullYear(), now.getMonth() + off, 1);
+  const prevDate = getDate(monthOffset - 1);
+  const currDate = getDate(monthOffset);
+  const nextDate = getDate(monthOffset + 1);
+
+  canGoPrevRef.current = prevDate >= LAUNCH_MONTH;
+  canGoNextRef.current =
+    nextDate.getFullYear() < now.getFullYear() ||
+    (nextDate.getFullYear() === now.getFullYear() && nextDate.getMonth() <= now.getMonth());
+
+  // Set initial track position on mount
+  useEffect(() => {
+    if (trackRef.current) {
+      trackRef.current.style.transform = 'translateX(-33.333%)';
+    }
+  }, []);
+
+  // Gesture handling — registers once, uses refs for live boundary values
+  useEffect(() => {
+    const wrapper = wrapperRef.current;
+    const track = trackRef.current;
+    if (!wrapper || !track) return;
+
+    let startX = 0, startY = 0;
+    let determined = false, isHoriz = false;
+
+    const setX = (xPx: number, animated: boolean) => {
+      track.style.transition = animated
+        ? 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+        : 'none';
+      track.style.transform = `translateX(calc(-33.333% + ${xPx}px))`;
+    };
+
+    const onStart = (e: TouchEvent) => {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      determined = false;
+      isHoriz = false;
+      track.style.transition = 'none';
+    };
+
+    const onMove = (e: TouchEvent) => {
+      const dx = e.touches[0].clientX - startX;
+      const dy = e.touches[0].clientY - startY;
+
+      if (!determined) {
+        if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
+          isHoriz = Math.abs(dx) > Math.abs(dy);
+          determined = true;
+        }
+        return;
+      }
+      if (!isHoriz) return;
+      e.preventDefault();
+
+      const W = wrapper.offsetWidth;
+      const atBoundary =
+        (dx > 0 && !canGoPrevRef.current) ||
+        (dx < 0 && !canGoNextRef.current);
+
+      // Rubber band resistance when at a boundary
+      const effectiveDx = atBoundary
+        ? Math.sign(dx) * W * 0.28 * Math.log1p(Math.abs(dx) / (W * 0.28))
+        : dx;
+
+      setX(effectiveDx, false);
+    };
+
+    const onEnd = (e: TouchEvent) => {
+      if (!isHoriz) return;
+      const dx = e.changedTouches[0].clientX - startX;
+      const W = wrapper.offsetWidth;
+
+      if (dx > W / 4 && canGoPrevRef.current) {
+        setX(W, true);
+        setTimeout(() => {
+          setMonthOffset(o => o - 1);
+          track.style.transition = 'none';
+          track.style.transform = 'translateX(-33.333%)';
+        }, 310);
+      } else if (dx < -(W / 4) && canGoNextRef.current) {
+        setX(-W, true);
+        setTimeout(() => {
+          setMonthOffset(o => o + 1);
+          track.style.transition = 'none';
+          track.style.transform = 'translateX(-33.333%)';
+        }, 310);
+      } else {
+        // Bounce back
+        setX(0, true);
+      }
+    };
+
+    wrapper.addEventListener('touchstart', onStart, { passive: true });
+    wrapper.addEventListener('touchmove', onMove, { passive: false });
+    wrapper.addEventListener('touchend', onEnd, { passive: true });
+
+    return () => {
+      wrapper.removeEventListener('touchstart', onStart);
+      wrapper.removeEventListener('touchmove', onMove);
+      wrapper.removeEventListener('touchend', onEnd);
+    };
+  }, []);
 
   return (
-    <div>
-      <MonthGrid year={currentYear} month={currentMonth} entries={entries} onDayTap={onDayTap} />
-
-      <button
-        onPointerDown={e => { e.preventDefault(); setHistoryOpen(v => !v); }}
-        className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium mb-6 transition-opacity active:opacity-60"
+    <div ref={wrapperRef} className="overflow-hidden">
+      <div
+        ref={trackRef}
+        style={{ display: 'flex', width: '300%', willChange: 'transform' }}
       >
-        <ChevronDown size={14} className={`transition-transform duration-200 ${historyOpen ? 'rotate-180' : ''}`} />
-        {historyOpen ? 'Hide history' : 'History'}
-      </button>
-
-      {historyOpen && (
-        pastMonths.length > 0
-          ? pastMonths.map(({ year, month }) => (
-              <MonthGrid key={`${year}-${month}`} year={year} month={month} entries={entries} onDayTap={onDayTap} />
-            ))
-          : <p className="text-sm text-muted-foreground mb-6">No history...for now.</p>
-      )}
+        {[prevDate, currDate, nextDate].map((d, i) => (
+          <div key={i} style={{ width: '33.333%', flexShrink: 0, boxSizing: 'border-box', padding: '0 2px' }}>
+            <MonthGrid
+              year={d.getFullYear()}
+              month={d.getMonth()}
+              entries={entries}
+              onDayTap={onDayTap}
+            />
+          </div>
+        ))}
+      </div>
     </div>
   );
 };

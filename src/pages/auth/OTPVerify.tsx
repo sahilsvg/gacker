@@ -9,27 +9,19 @@ interface Props {
 }
 
 const OTPVerify = ({ phone, onVerified, onBack }: Props) => {
-  const [code, setCode] = useState(['', '', '', '', '', '']);
+  const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [resent, setResent] = useState(false);
-  const inputs = useRef<(HTMLInputElement | null)[]>([]);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
-  useEffect(() => { inputs.current[0]?.focus(); }, []);
+  useEffect(() => { inputRef.current?.focus(); }, []);
 
-  const handleChange = (i: number, val: string) => {
+  const handleChange = (val: string) => {
     if (!/^\d*$/.test(val)) return;
-    const next = [...code];
-    next[i] = val.slice(-1);
+    const next = val.slice(0, 6);
     setCode(next);
-    if (val && i < 5) inputs.current[i + 1]?.focus();
-    if (next.every(d => d)) verify(next.join(''));
-  };
-
-  const handleKeyDown = (i: number, e: React.KeyboardEvent) => {
-    if (e.key === 'Backspace' && !code[i] && i > 0) {
-      inputs.current[i - 1]?.focus();
-    }
+    if (next.length === 6) verify(next);
   };
 
   const verify = async (token: string) => {
@@ -38,8 +30,8 @@ const OTPVerify = ({ phone, onVerified, onBack }: Props) => {
     const { data, error } = await supabase.auth.verifyOtp({ phone, token, type: 'sms' });
     if (error) {
       setError('Incorrect code. Try again.');
-      setCode(['', '', '', '', '', '']);
-      inputs.current[0]?.focus();
+      setCode('');
+      inputRef.current?.focus();
       setLoading(false);
       return;
     }
@@ -71,22 +63,28 @@ const OTPVerify = ({ phone, onVerified, onBack }: Props) => {
           We sent a 6-digit code to <span className="text-foreground font-medium">{displayPhone}</span>
         </p>
 
-        <div className="flex gap-3 justify-center mb-4">
-          {code.map((digit, i) => (
-            <input
+        {/* Single hidden input captures the full code — iOS autofill fills all 6 digits at once */}
+        <div className="relative flex gap-3 justify-center mb-4" onPointerDown={() => inputRef.current?.focus()}>
+          <input
+            ref={inputRef}
+            type="text"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={6}
+            value={code}
+            onChange={e => handleChange(e.target.value)}
+            disabled={loading}
+            className="absolute inset-0 opacity-0 w-full h-full cursor-default"
+          />
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div
               key={i}
-              ref={el => { inputs.current[i] = el; }}
-              type="text"
-              inputMode="numeric"
-              maxLength={1}
-              value={digit}
-              onChange={e => handleChange(i, e.target.value)}
-              onKeyDown={e => handleKeyDown(i, e)}
-              disabled={loading}
-              className={`w-11 h-14 text-center text-xl font-semibold rounded-xl border bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-ring transition-all ${
-                digit ? 'border-clean' : 'border-border'
-              } disabled:opacity-50`}
-            />
+              className={`w-11 h-14 flex items-center justify-center text-xl font-semibold rounded-xl border bg-card text-foreground transition-all ${
+                code[i] ? 'border-clean' : 'border-border'
+              } ${loading ? 'opacity-50' : ''}`}
+            >
+              {code[i] ?? ''}
+            </div>
           ))}
         </div>
 

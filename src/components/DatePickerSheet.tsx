@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { formatDateKey, Entry } from '@/lib/entries';
+import { useSwipeToDismiss } from '@/hooks/useSwipeToDismiss';
 
 interface Props {
   selected: string; // YYYY-MM-DD
@@ -19,6 +20,7 @@ const DatePickerSheet = ({ selected, entries, onSelect, onClose }: Props) => {
 
   const [isClosing, setIsClosing] = useState(false);
   const handleClose = () => { setIsClosing(true); setTimeout(onClose, 210); };
+  const { onTouchStart, onTouchEnd } = useSwipeToDismiss(handleClose);
 
   const [viewYear, setViewYear] = useState(() => {
     const d = new Date(selected + 'T00:00:00');
@@ -51,7 +53,12 @@ const DatePickerSheet = ({ selected, entries, onSelect, onClose }: Props) => {
   return (
     <div className="fixed inset-0 z-[250] flex flex-col justify-end">
       <div className="absolute inset-0 bg-black/60" onPointerDown={handleClose} />
-      <div className={`relative bg-card rounded-t-3xl ${isClosing ? 'animate-slide-down' : 'animate-slide-up'}`} style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      <div
+        className={`relative bg-card rounded-t-3xl ${isClosing ? 'animate-slide-down' : 'animate-slide-up'}`}
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+      >
 
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
@@ -61,7 +68,7 @@ const DatePickerSheet = ({ selected, entries, onSelect, onClose }: Props) => {
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-border">
           <h3 className="font-semibold text-foreground">Select a date</h3>
-          <button onPointerDown={e => { e.preventDefault(); handleClose(); }} className="text-muted-foreground active:opacity-60">
+          <button onPointerDown={e => { e.preventDefault(); handleClose(); }} className="text-muted-foreground active:opacity-60 p-3 -mr-3">
             <X size={18} />
           </button>
         </div>
@@ -71,17 +78,17 @@ const DatePickerSheet = ({ selected, entries, onSelect, onClose }: Props) => {
           <button
             onPointerDown={e => { e.preventDefault(); prevMonth(); }}
             disabled={!canGoPrev}
-            className="w-8 h-8 flex items-center justify-center rounded-full active:bg-muted transition-colors disabled:opacity-20"
+            className="w-11 h-11 flex items-center justify-center rounded-full active:bg-muted transition-colors disabled:opacity-20"
           >
-            <ChevronLeft size={18} className="text-foreground" />
+            <ChevronLeft size={20} className="text-foreground" />
           </button>
           <span className="text-sm font-semibold text-foreground">{monthLabel}</span>
           <button
             onPointerDown={e => { e.preventDefault(); nextMonth(); }}
             disabled={!canGoNext}
-            className="w-8 h-8 flex items-center justify-center rounded-full active:bg-muted transition-colors disabled:opacity-20"
+            className="w-11 h-11 flex items-center justify-center rounded-full active:bg-muted transition-colors disabled:opacity-20"
           >
-            <ChevronRight size={18} className="text-foreground" />
+            <ChevronRight size={20} className="text-foreground" />
           </button>
         </div>
 

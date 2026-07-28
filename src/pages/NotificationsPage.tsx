@@ -3,6 +3,7 @@ import { ArrowLeft, Bell } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getNotifications, markAllRead, AppNotification, NotificationType } from '@/lib/notifications';
 import { timeAgo } from '@/lib/timeAgo';
+import { useSwipeToDismiss } from '@/hooks/useSwipeToDismiss';
 
 interface Props {
   onClose: () => void;
@@ -21,6 +22,18 @@ const notifText = (n: AppNotification): string => {
       return n.data?.body
         ? `${handle} commented: "${n.data.body}"`
         : `${handle} commented on your entry`;
+    case 'comment_like':
+      return `${handle} liked your comment`;
+    case 'comment_reply':
+      return n.data?.body
+        ? `${handle} replied: "${n.data.body}"`
+        : `${handle} replied to your comment`;
+    case 'mention_comment':
+      return n.data?.body
+        ? `${handle} mentioned you: "${n.data.body}"`
+        : `${handle} mentioned you in a comment`;
+    case 'mention_entry':
+      return `${handle} mentioned you in a post`;
     case 'streak_milestone': {
       const count = n.data?.streak_count;
       const label = count >= 365 ? '1 year' : count >= 30 ? `${Math.floor(count / 30)} month${count >= 60 ? 's' : ''}` : `${count} days`;
@@ -49,6 +62,7 @@ const NotificationsPage = ({ onClose }: Props) => {
   const { user } = useAuth();
   const [notifs, setNotifs] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
+  const { onTouchStart, onTouchEnd } = useSwipeToDismiss(onClose);
 
   useEffect(() => {
     if (!user) return;
@@ -64,13 +78,13 @@ const NotificationsPage = ({ onClose }: Props) => {
       className="fixed inset-0 bg-background flex flex-col z-[300] animate-slide-up"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
-      {/* Header */}
-      <div className="flex items-center px-5 pt-6 pb-4 border-b border-border">
+      {/* Header — swipe down here to dismiss */}
+      <div className="flex items-center px-5 pt-6 pb-4 border-b border-border" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         <button
           onPointerDown={e => { e.preventDefault(); onClose(); }}
-          className="flex items-center gap-1.5 text-muted-foreground text-sm active:opacity-60 transition-opacity mr-4"
+          className="flex items-center gap-1.5 text-muted-foreground text-sm active:opacity-60 transition-opacity py-3 pr-4 -ml-1"
         >
-          <ArrowLeft size={16} />
+          <ArrowLeft size={20} />
         </button>
         <h2 className="font-semibold text-foreground text-base">Notifications</h2>
       </div>

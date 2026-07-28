@@ -5,6 +5,10 @@ export type NotificationType =
   | 'follow_accepted'
   | 'like'
   | 'comment'
+  | 'comment_like'
+  | 'comment_reply'
+  | 'mention_comment'
+  | 'mention_entry'
   | 'streak_milestone';
 
 export interface AppNotification {

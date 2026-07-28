@@ -3,13 +3,12 @@ import { Settings, UserPlus } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchEntries, computeStats, Entry } from '@/lib/entries';
 import { getFollowerCounts, getPendingRequests } from '@/lib/social';
-import CalendarView from '@/components/CalendarView';
+import ProfileTabs from '@/components/ProfileTabs';
 import SettingsPage from '@/pages/SettingsPage';
 import FollowRequestsPage from '@/pages/FollowRequestsPage';
 import PullToRefresh from '@/components/PullToRefresh';
 import FollowListSheet from '@/components/FollowListSheet';
 import UserProfile from '@/pages/UserProfile';
-import EntryDetailSheet from '@/components/EntryDetailSheet';
 
 interface Props {
   isActive: boolean;
@@ -29,8 +28,6 @@ const ProfileTab = ({ isActive, resetKey }: Props) => {
   const [followSheet, setFollowSheet] = useState<'followers' | 'following' | null>(null);
   const [view, setView] = useState<View>('profile');
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const [entryDetail, setEntryDetail] = useState<{ dateKey: string; entry: Entry } | null>(null);
-
   const load = useCallback(async (silent = false) => {
     if (!user) return;
     if (!silent) setLoading(true);
@@ -144,11 +141,12 @@ const ProfileTab = ({ isActive, resetKey }: Props) => {
               </div>
             </div>
 
-            {/* Calendar */}
-            {!loading && (
-              <CalendarView
+            {/* Sub-tabs */}
+            {!loading && user && (
+              <ProfileTabs
                 entries={entries}
-                onDayTap={(dateKey, entry) => setEntryDetail({ dateKey, entry })}
+                currentUserId={user.id}
+                canSeeContent={true}
               />
             )}
 
@@ -162,14 +160,6 @@ const ProfileTab = ({ isActive, resetKey }: Props) => {
 
       {showRequests && (
         <FollowRequestsPage onClose={() => { setShowRequests(false); load(true); }} />
-      )}
-
-      {entryDetail && (
-        <EntryDetailSheet
-          dateKey={entryDetail.dateKey}
-          entry={entryDetail.entry}
-          onClose={() => setEntryDetail(null)}
-        />
       )}
 
       {followSheet && user && (

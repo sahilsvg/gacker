@@ -1,7 +1,9 @@
-import React, { useRef, useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { X, Music, Play, Pause } from 'lucide-react';
 import { Entry } from '@/lib/entries';
 import { timeAgo } from '@/lib/timeAgo';
+import { usePlayer } from '@/contexts/PlayerContext';
+import { useSwipeToDismiss } from '@/hooks/useSwipeToDismiss';
 
 interface Props {
   dateKey: string;
@@ -10,11 +12,13 @@ interface Props {
 }
 
 const EntryDetailSheet = ({ dateKey, entry, onClose }: Props) => {
-  const [playing, setPlaying] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const { play: globalPlay, currentSong, isPlaying } = usePlayer();
+  const playing = currentSong?.url === entry.song_preview_url && isPlaying;
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  const handleClose = () => { stop(); setIsClosing(true); setTimeout(onClose, 210); };
+  const handleClose = () => { setIsClosing(true); setTimeout(onClose, 210); };
+  const { onTouchStart, onTouchEnd } = useSwipeToDismiss(handleClose, scrollRef);
 
   const [y, m, d] = dateKey.split('-').map(Number);
   const dateObj = new Date(y, m - 1, d);
@@ -22,18 +26,8 @@ const EntryDetailSheet = ({ dateKey, entry, onClose }: Props) => {
 
   const togglePlay = () => {
     if (!entry.song_preview_url) return;
-    if (playing) {
-      audioRef.current?.pause();
-      setPlaying(false);
-    } else {
-      if (!audioRef.current) audioRef.current = new Audio();
-      audioRef.current.src = entry.song_preview_url;
-      audioRef.current.onended = () => setPlaying(false);
-      audioRef.current.play().then(() => setPlaying(true)).catch(() => {});
-    }
+    globalPlay({ url: entry.song_preview_url, name: entry.song_name ?? '', artist: entry.song_artist ?? '', albumArt: entry.song_album_art ?? null });
   };
-
-  const stop = () => { audioRef.current?.pause(); setPlaying(false); };
 
   return (
     <div className="fixed inset-0 z-[200] flex flex-col justify-end">
@@ -41,24 +35,26 @@ const EntryDetailSheet = ({ dateKey, entry, onClose }: Props) => {
       <div
         className={`relative bg-card rounded-t-3xl flex flex-col ${isClosing ? 'animate-slide-down' : 'animate-slide-up'}`}
         style={{ height: '72vh', paddingBottom: 'env(safe-area-inset-bottom)' }}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
       >
         {/* Handle */}
-        <div className="flex justify-center pt-3 pb-1">
+        <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
           <div className="w-10 h-1 rounded-full bg-border" />
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border flex-shrink-0">
           <div>
             <p className="font-semibold text-foreground text-sm">{dateLabel}</p>
             {entry.created_at && <p className="text-[10px] text-muted-foreground/60 mt-0.5">logged {timeAgo(entry.created_at)}</p>}
           </div>
-          <button onPointerDown={e => { e.preventDefault(); handleClose(); }} className="text-muted-foreground active:opacity-60">
+          <button onPointerDown={e => { e.preventDefault(); handleClose(); }} className="text-muted-foreground active:opacity-60 p-3 -mr-3">
             <X size={18} />
           </button>
         </div>
 
-        <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
+        <div ref={scrollRef} className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
           {/* Status */}
           <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold ${
             entry.clean ? 'bg-clean/15 text-clean' : 'bg-red/15 text-red'
@@ -67,7 +63,19 @@ const EntryDetailSheet = ({ dateKey, entry, onClose }: Props) => {
             {entry.clean ? 'Clean Day' : 'Red Day'}
           </div>
 
-          {/* Song — shown first so it's always visible */}
+          {/* Photo */}
+          {entry.image_url && (
+            <div className="rounded-xl overflow-hidden">
+              <img
+                src={entry.image_url}
+                alt=""
+                className="w-full object-cover"
+                style={{ maxHeight: 240 }}
+              />
+            </div>
+          )}
+
+          {/* Song */}
           {entry.song_name && (
             <div>
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Song</p>
@@ -85,7 +93,7 @@ const EntryDetailSheet = ({ dateKey, entry, onClose }: Props) => {
                 {entry.song_preview_url && (
                   <button
                     onPointerDown={e => { e.preventDefault(); togglePlay(); }}
-                    className="w-9 h-9 rounded-full bg-muted flex items-center justify-center flex-shrink-0 active:scale-95 transition-all"
+                    className="w-11 h-11 rounded-full bg-muted flex items-center justify-center flex-shrink-0 active:scale-95 transition-all"
                   >
                     {playing
                       ? <Pause size={14} className="text-foreground" />
