@@ -1,5 +1,20 @@
 import { supabase } from '@/integrations/supabase/client';
 
+const LIKE_EVENT = 'gacker:like-changed';
+
+export function emitLikeChange(previewUrl: string, liked: boolean) {
+  window.dispatchEvent(new CustomEvent(LIKE_EVENT, { detail: { previewUrl, liked } }));
+}
+
+export function onLikeChange(cb: (previewUrl: string, liked: boolean) => void): () => void {
+  const handler = (e: Event) => {
+    const { previewUrl, liked } = (e as CustomEvent<{ previewUrl: string; liked: boolean }>).detail;
+    cb(previewUrl, liked);
+  };
+  window.addEventListener(LIKE_EVENT, handler);
+  return () => window.removeEventListener(LIKE_EVENT, handler);
+}
+
 export interface LikedSong {
   id: string;
   song_name: string;
@@ -33,13 +48,14 @@ export async function toggleLikedSong(
   song: { name: string; artist: string; albumArt: string | null; previewUrl: string },
   currentlyLiked: boolean,
 ): Promise<boolean> {
+  const newLiked = !currentlyLiked;
+  emitLikeChange(song.previewUrl, newLiked);
   if (currentlyLiked) {
     await supabase
       .from('liked_songs')
       .delete()
       .eq('user_id', userId)
       .eq('song_preview_url', song.previewUrl);
-    return false;
   } else {
     await supabase.from('liked_songs').upsert({
       user_id: userId,
@@ -48,6 +64,6 @@ export async function toggleLikedSong(
       song_album_art: song.albumArt,
       song_preview_url: song.previewUrl,
     });
-    return true;
   }
+  return newLiked;
 }

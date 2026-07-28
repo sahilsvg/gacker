@@ -22,6 +22,18 @@ const notifText = (n: AppNotification): string => {
       return n.data?.body
         ? `${handle} commented: "${n.data.body}"`
         : `${handle} commented on your entry`;
+    case 'comment_like':
+      return `${handle} liked your comment`;
+    case 'comment_reply':
+      return n.data?.body
+        ? `${handle} replied: "${n.data.body}"`
+        : `${handle} replied to your comment`;
+    case 'mention_comment':
+      return n.data?.body
+        ? `${handle} mentioned you: "${n.data.body}"`
+        : `${handle} mentioned you in a comment`;
+    case 'mention_entry':
+      return `${handle} mentioned you in a post`;
     case 'streak_milestone': {
       const count = n.data?.streak_count;
       const label = count >= 365 ? '1 year' : count >= 30 ? `${Math.floor(count / 30)} month${count >= 60 ? 's' : ''}` : `${count} days`;

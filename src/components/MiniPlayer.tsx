@@ -3,7 +3,7 @@ import { Play, Pause, X, Heart } from 'lucide-react';
 import { usePlayer } from '@/contexts/PlayerContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { haptic } from '@/lib/haptics';
-import { isLikedSong, toggleLikedSong } from '@/lib/likedSongs';
+import { isLikedSong, toggleLikedSong, onLikeChange } from '@/lib/likedSongs';
 
 const MiniPlayer = () => {
   const { currentSong, isPlaying, togglePlay, stop } = usePlayer();
@@ -23,6 +23,13 @@ const MiniPlayer = () => {
       }
     }
   }, [currentSong, user]);
+
+  // Sync liked state when changed from another component
+  useEffect(() => {
+    return onLikeChange((previewUrl, liked) => {
+      if (previewUrl === displaySong?.url) setLiked(liked);
+    });
+  }, [displaySong?.url]);
 
   const handleToggleLike = useCallback(async () => {
     if (!user || !displaySong?.url) return;

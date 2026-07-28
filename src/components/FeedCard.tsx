@@ -118,17 +118,23 @@ const FeedCard = ({ item, onProfileTap, onUpdate, isTabActive }: Props) => {
 
         {/* Notes */}
         {item.notes && (
-          <p className="text-sm text-foreground/80 leading-relaxed mb-3">{item.notes}</p>
+          <p className="text-sm text-foreground/80 leading-relaxed mb-3">
+            {item.notes.split(/(@[a-zA-Z0-9_]+)/g).map((part, i) =>
+              part.startsWith('@')
+                ? <span key={i} className="text-clean font-medium">{part}</span>
+                : part
+            )}
+          </p>
         )}
 
         {/* Photo */}
         {item.image_url && (
-          <div className="rounded-xl overflow-hidden mb-3">
+          <div className="flex justify-center mb-3">
             <img
               src={item.image_url}
               alt=""
-              className="w-full object-cover"
-              style={{ maxHeight: 240 }}
+              className="rounded-xl object-cover"
+              style={{ width: 240, height: 240 }}
             />
           </div>
         )}
@@ -164,25 +170,25 @@ const FeedCard = ({ item, onProfileTap, onUpdate, isTabActive }: Props) => {
         )}
 
         {/* Actions */}
-        <div className="flex items-center gap-2 border-t border-border/50 mt-1">
+        <div className="flex items-center gap-0.5 border-t border-border/50 mt-1">
           <button
             onPointerDown={handleLikePointerDown}
             onPointerUp={handleLikePointerUp}
             onPointerLeave={handleLikePointerLeave}
             onPointerCancel={handleLikePointerLeave}
-            className={`flex items-center gap-1.5 text-sm transition-all active:scale-95 py-3 px-2 ${
+            className={`flex items-center gap-0.5 transition-all active:scale-95 py-2 pr-2 min-w-[32px] ${
               item.iLiked ? 'text-red' : 'text-muted-foreground'
             }`}
           >
-            <Heart size={18} fill={item.iLiked ? 'currentColor' : 'none'} />
-            {item.likeCount > 0 && <span className="font-medium">{item.likeCount}</span>}
+            <Heart size={14} fill={item.iLiked ? 'currentColor' : 'none'} />
+            <span className={`font-medium text-xs ${item.likeCount > 0 ? '' : 'invisible'}`}>{item.likeCount || 0}</span>
           </button>
           <button
             onPointerDown={e => { e.preventDefault(); haptic.light(); setShowComments(true); }}
-            className="flex items-center gap-1.5 text-sm text-muted-foreground transition-all active:scale-95 py-3 px-2"
+            className="flex items-center gap-0.5 text-muted-foreground transition-all active:scale-95 py-2 pr-2 min-w-[32px]"
           >
-            <MessageCircle size={18} />
-            {item.commentCount > 0 && <span className="font-medium">{item.commentCount}</span>}
+            <MessageCircle size={14} />
+            <span className={`font-medium text-xs ${item.commentCount > 0 ? '' : 'invisible'}`}>{item.commentCount || 0}</span>
           </button>
         </div>
       </div>

@@ -86,7 +86,7 @@ const LikedSongsSheet = ({ onSelect, onClose }: Props) => {
           )}
           {!loading && songs.length === 0 && (
             <p className="text-muted-foreground text-sm text-center py-10 px-10">
-              No liked songs yet. Hit the heart in the player while a song is playing.
+              No liked songs yet.
             </p>
           )}
           {songs.map(song => {

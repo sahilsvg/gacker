@@ -60,6 +60,13 @@ export const upsertEntry = async (
     },
     { onConflict: 'user_id,date' }
   );
+  const { data } = await supabase
+    .from('entries')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('date', date)
+    .maybeSingle();
+  return data as { id: string } | null;
 };
 
 export const computeStats = (entries: Record<string, Entry>) => {

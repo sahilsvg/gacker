@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { ChevronDown, ImagePlus, X } from 'lucide-react';
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDateKey, upsertEntry, fetchEntries, computeStats, Entry } from '@/lib/entries';
-import { getFollowerIds } from '@/lib/social';
-import { createNotificationsForMany } from '@/lib/notifications';
+import { getFollowerIds, searchFollowedByHandle, resolveHandles, SearchProfile } from '@/lib/social';
+import { createNotificationsForMany, createNotification } from '@/lib/notifications';
 import { supabase } from '@/integrations/supabase/client';
 import SongPicker, { SongSelection } from '@/components/SongPicker';
 import DatePickerSheet from '@/components/DatePickerSheet';
@@ -35,6 +36,30 @@ const LogTab = ({ resetKey: _, isActive }: { resetKey: number; isActive?: boolea
   const [animating, setAnimating] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [showLikedSongs, setShowLikedSongs] = useState(false);
+
+  // Mention state (notes textarea)
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionSuggestions, setMentionSuggestions] = useState<SearchProfile[]>([]);
+  const notesRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (!user || mentionQuery === null || mentionQuery === '') { setMentionSuggestions([]); return; }
+    searchFollowedByHandle(user.id, mentionQuery).then(setMentionSuggestions);
+  }, [mentionQuery, user]);
+
+  const handleNotesChange = (val: string) => {
+    setNotes(val);
+    const atMatch = val.match(/@([a-zA-Z0-9_]*)$/);
+    setMentionQuery(atMatch ? atMatch[1].toLowerCase() : null);
+  };
+
+  const insertNotesMention = (profile: SearchProfile) => {
+    const replaced = notes.replace(/@([a-zA-Z0-9_]*)$/, `@${profile.handle} `);
+    setNotes(replaced);
+    setMentionQuery(null);
+    setMentionSuggestions([]);
+    notesRef.current?.focus();
+  };
 
   // Image state
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -75,7 +100,20 @@ const LogTab = ({ resetKey: _, isActive }: { resetKey: number; isActive?: boolea
     if (!file) return;
     const objectUrl = URL.createObjectURL(file);
     setCropperSrc(objectUrl);
-    e.target.value = ''; // reset so same file can re-trigger
+    e.target.value = '';
+  };
+
+  const handleAddPhoto = async () => {
+    try {
+      const photo = await Camera.getPhoto({
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Prompt,
+        quality: 90,
+      });
+      if (photo.dataUrl) setCropperSrc(photo.dataUrl);
+    } catch {
+      // user cancelled
+    }
   };
 
   const handleCropComplete = (blob: Blob) => {
@@ -119,7 +157,27 @@ const LogTab = ({ resetKey: _, isActive }: { resetKey: number; isActive?: boolea
       imageUrl = existingEntry?.image_url ?? null;
     }
 
-    await upsertEntry(user.id, selectedDate, clean, notes.trim(), null, song, imageUrl);
+    const trimmedNotes = notes.trim();
+    const entryRow = await upsertEntry(user.id, selectedDate, clean, trimmedNotes, null, song, imageUrl);
+    const entryId = entryRow?.id;
+
+    // Resolve @mentions in notes and notify
+    if (trimmedNotes && entryId) {
+      const handles = (trimmedNotes.match(/@([a-zA-Z0-9_]+)/g) ?? []).map(h => h.slice(1).toLowerCase());
+      if (handles.length > 0) {
+        const handleMap = await resolveHandles(handles);
+        const mentionedIds = Object.values(handleMap).filter(id => id !== user.id);
+        if (mentionedIds.length > 0) {
+          await supabase.from('mentions').insert(mentionedIds.map(uid => ({
+            mentioned_user_id: uid, entry_id: entryId, actor_id: user.id,
+          })));
+          for (const uid of mentionedIds) {
+            createNotification(uid, 'mention_entry', user.id, { entry_id: entryId });
+          }
+        }
+      }
+    }
+
     const updated = await fetchEntries(user.id);
     setEntries(updated);
 
@@ -205,7 +263,7 @@ const LogTab = ({ resetKey: _, isActive }: { resetKey: number; isActive?: boolea
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Song <span className="font-normal normal-case">(optional)</span>
+                  Song
                 </label>
                 <button
                   onPointerDown={e => { e.preventDefault(); setShowLikedSongs(true); }}
@@ -220,33 +278,32 @@ const LogTab = ({ resetKey: _, isActive }: { resetKey: number; isActive?: boolea
             {/* Photo — between Song and Notes */}
             <div>
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
-                Photo <span className="font-normal normal-case">(optional)</span>
+                Photo
               </label>
               {displayImageUrl ? (
-                <div className="relative rounded-2xl overflow-hidden">
+                <div className="flex items-center gap-3 bg-card border border-border rounded-2xl p-2">
                   <img
                     src={displayImageUrl}
                     alt=""
-                    className="w-full h-56 object-cover"
+                    className="w-14 h-14 rounded-xl object-cover flex-shrink-0"
                   />
-                  <div className="absolute top-2 right-2 flex gap-2">
-                    <button
-                      onPointerDown={e => { e.preventDefault(); imageInputRef.current?.click(); }}
-                      className="bg-black/60 text-white text-xs font-medium px-3 py-1.5 rounded-xl active:opacity-60"
-                    >
-                      Change
-                    </button>
-                    <button
-                      onPointerDown={e => { e.preventDefault(); removeImage(); }}
-                      className="bg-black/60 text-white w-8 h-8 rounded-xl flex items-center justify-center active:opacity-60"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
+                  <div className="flex-1" />
+                  <button
+                    onPointerDown={e => { e.preventDefault(); handleAddPhoto(); }}
+                    className="text-xs font-medium text-muted-foreground px-3 py-1.5 rounded-xl bg-muted active:opacity-60 flex-shrink-0"
+                  >
+                    Change
+                  </button>
+                  <button
+                    onPointerDown={e => { e.preventDefault(); removeImage(); }}
+                    className="text-muted-foreground w-8 h-8 rounded-xl flex items-center justify-center active:opacity-60 flex-shrink-0"
+                  >
+                    <X size={14} />
+                  </button>
                 </div>
               ) : (
                 <button
-                  onPointerDown={e => { e.preventDefault(); imageInputRef.current?.click(); }}
+                  onPointerDown={e => { e.preventDefault(); handleAddPhoto(); }}
                   className="w-full h-28 rounded-2xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-2 text-muted-foreground active:border-foreground/30 transition-colors"
                 >
                   <ImagePlus size={22} />
@@ -263,18 +320,40 @@ const LogTab = ({ resetKey: _, isActive }: { resetKey: number; isActive?: boolea
             </div>
 
             {/* Notes */}
-            <div>
+            <div className="relative">
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
-                Notes <span className="font-normal normal-case">(optional)</span>
+                Notes
               </label>
               <textarea
+                ref={notesRef}
                 value={notes}
-                onChange={e => setNotes(e.target.value)}
+                onChange={e => handleNotesChange(e.target.value)}
                 placeholder="Anything to note about today…"
                 rows={4}
                 maxLength={2000}
                 className="w-full bg-card border border-border rounded-2xl px-4 py-3 text-foreground text-sm resize-none focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
               />
+              {/* @mention autocomplete */}
+              {mentionSuggestions.length > 0 && (
+                <div className="absolute left-0 right-0 bottom-full mb-1 bg-background border border-border rounded-xl overflow-hidden z-10 shadow-lg">
+                  {mentionSuggestions.map(p => (
+                    <button
+                      key={p.id}
+                      onPointerDown={e => { e.preventDefault(); insertNotesMention(p); }}
+                      className="flex items-center gap-2.5 w-full px-3 py-2.5 active:bg-muted transition-colors border-b border-border/30 last:border-0"
+                    >
+                      {p.avatar_url
+                        ? <img src={p.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
+                        : <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                            <span className="font-wordmark text-xs text-foreground">{p.name?.[0]?.toUpperCase()}</span>
+                          </div>
+                      }
+                      <span className="text-sm font-medium text-foreground">{p.name}</span>
+                      <span className="text-xs text-muted-foreground">@{p.handle}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
