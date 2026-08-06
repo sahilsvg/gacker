@@ -5,6 +5,7 @@ import { usePlayer } from '@/contexts/PlayerContext';
 import { toggleLike, FeedItem } from '@/lib/social';
 import { timeAgo } from '@/lib/timeAgo';
 import { haptic } from '@/lib/haptics';
+import { useTap } from '@/hooks/useTap';
 import CommentsSheet from './CommentsSheet';
 import LikesSheet from './LikesSheet';
 
@@ -57,7 +58,7 @@ const FeedCard = ({ item, onProfileTap, onUpdate, isTabActive }: Props) => {
     await toggleLike(user.id, item.id, item.iLiked, item.user_id);
   };
 
-  const handleCardTap = (e: React.PointerEvent) => {
+  const cardTap = useTap((e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest('button, a')) return;
     const now = Date.now();
     if (now - lastTapRef.current < 350) {
@@ -67,7 +68,7 @@ const FeedCard = ({ item, onProfileTap, onUpdate, isTabActive }: Props) => {
       }
     }
     lastTapRef.current = now;
-  };
+  });
 
   const handleLikePointerDown = (e: React.PointerEvent) => {
     e.preventDefault();
@@ -90,7 +91,7 @@ const FeedCard = ({ item, onProfileTap, onUpdate, isTabActive }: Props) => {
 
   return (
     <>
-      <div className="bg-card border border-border rounded-2xl p-4" onPointerDown={handleCardTap}>
+      <div className="bg-card border border-border rounded-2xl p-4" {...cardTap.props}>
         {/* Header */}
         <div className="flex items-center gap-3 mb-3">
           <button onClick={() => onProfileTap(item.user_id)} className="flex-shrink-0">

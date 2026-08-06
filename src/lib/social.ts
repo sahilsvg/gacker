@@ -328,7 +328,7 @@ export const removeFollower = async (followerId: string, followingId: string) =>
 export const getUserProfile = async (userId: string) => {
   const { data } = await supabase
     .from('profiles')
-    .select('id, name, handle, avatar_url')
+    .select('id, name, handle, avatar_url, bio')
     .eq('id', userId)
     .maybeSingle();
   return data;
