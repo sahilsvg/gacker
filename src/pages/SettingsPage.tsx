@@ -24,6 +24,20 @@ const SettingsPage = ({ onClose }: Props) => {
   const [nameSaving, setNameSaving] = useState(false);
   const [nameError, setNameError] = useState('');
 
+  // Bio
+  const [editingBio, setEditingBio] = useState(false);
+  const [bio, setBio] = useState(profile?.bio ?? '');
+  const [bioSaving, setBioSaving] = useState(false);
+
+  const saveBio = async () => {
+    if (!user) return;
+    setBioSaving(true);
+    await supabase.from('profiles').update({ bio: bio.trim() || null }).eq('id', user.id);
+    await refreshProfile();
+    setEditingBio(false);
+    setBioSaving(false);
+  };
+
   // Handle
   const [editingHandle, setEditingHandle] = useState(false);
   const [handle, setHandle] = useState(profile?.handle ?? '');
@@ -228,6 +242,33 @@ const SettingsPage = ({ onClose }: Props) => {
                 <button onPointerDown={e => { e.preventDefault(); setEditingHandle(false); setHandleAvailable(null); }} className="flex-1 py-2 rounded-xl bg-muted text-sm font-medium text-muted-foreground">Cancel</button>
                 <button onPointerDown={e => { e.preventDefault(); saveHandle(); }} disabled={handleSaving || handleAvailable === false || handle === profile?.handle} className="flex-1 py-2 rounded-xl bg-clean text-clean-foreground text-sm font-semibold disabled:opacity-50">
                   {handleSaving ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="h-px bg-border mx-4" />
+
+          {/* Bio */}
+          <SettingsRow label="Bio" onTap={() => { setEditingBio(true); setBio(profile?.bio ?? ''); }}>
+            <span className="text-muted-foreground text-sm truncate max-w-[140px]">{profile?.bio || 'Add bio'}</span>
+          </SettingsRow>
+          {editingBio && (
+            <div className="px-4 pb-4 space-y-2">
+              <div className="relative">
+                <input
+                  autoFocus
+                  value={bio}
+                  onChange={e => setBio(e.target.value.slice(0, 80))}
+                  placeholder="A short bio…"
+                  className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring pr-12"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground/50">{bio.length}/80</span>
+              </div>
+              <div className="flex gap-2">
+                <button onPointerDown={e => { e.preventDefault(); setEditingBio(false); }} className="flex-1 py-2 rounded-xl bg-muted text-sm font-medium text-muted-foreground">Cancel</button>
+                <button onPointerDown={e => { e.preventDefault(); saveBio(); }} disabled={bioSaving} className="flex-1 py-2 rounded-xl bg-clean text-clean-foreground text-sm font-semibold disabled:opacity-50">
+                  {bioSaving ? 'Saving…' : 'Save'}
                 </button>
               </div>
             </div>

@@ -3,6 +3,7 @@ import { Settings, UserPlus } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchEntries, computeStats, Entry } from '@/lib/entries';
 import { getFollowerCounts, getPendingRequests } from '@/lib/social';
+import { supabase } from '@/integrations/supabase/client';
 import ProfileTabs from '@/components/ProfileTabs';
 import SettingsPage from '@/pages/SettingsPage';
 import FollowRequestsPage from '@/pages/FollowRequestsPage';
@@ -22,6 +23,7 @@ const ProfileTab = ({ isActive, resetKey }: Props) => {
   const [entries, setEntries] = useState<Record<string, Entry>>({});
   const [counts, setCounts] = useState({ followers: 0, following: 0 });
   const [pendingCount, setPendingCount] = useState(0);
+  const [goal, setGoal] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [showRequests, setShowRequests] = useState(false);
@@ -31,14 +33,16 @@ const ProfileTab = ({ isActive, resetKey }: Props) => {
   const load = useCallback(async (silent = false) => {
     if (!user) return;
     if (!silent) setLoading(true);
-    const [ents, c, reqs] = await Promise.all([
+    const [ents, c, reqs, profileRes] = await Promise.all([
       fetchEntries(user.id),
       getFollowerCounts(user.id),
       getPendingRequests(user.id),
+      supabase.from('profiles').select('clean_day_goal').eq('id', user.id).maybeSingle(),
     ]);
     setEntries(ents);
     setCounts(c);
     setPendingCount(reqs.length);
+    setGoal(profileRes.data?.clean_day_goal ?? null);
     setLoading(false);
   }, [user]);
 
@@ -54,6 +58,8 @@ const ProfileTab = ({ isActive, resetKey }: Props) => {
   }, [resetKey]);
 
   const { streak, cleanDays, redDays } = computeStats(entries);
+  const total = cleanDays + redDays;
+  const fireRate = total > 0 ? Math.round((redDays / total) * 100) : 0;
 
   const handleProfileTap = (userId: string) => {
     setSelectedUserId(userId);
@@ -107,6 +113,11 @@ const ProfileTab = ({ isActive, resetKey }: Props) => {
               </div>
             </div>
 
+            {/* Bio */}
+            {profile?.bio && (
+              <p className="text-sm text-foreground/80 mb-4 -mt-2">{profile.bio}</p>
+            )}
+
             {/* Follower counts */}
             <div className="flex gap-5 mb-8">
               <button
@@ -132,12 +143,12 @@ const ProfileTab = ({ isActive, resetKey }: Props) => {
                 <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mt-1">Streak</div>
               </div>
               <div className="bg-card border border-border rounded-2xl p-4 text-center">
-                <div className="font-mono-stats text-2xl font-medium text-clean">{loading ? '—' : cleanDays}</div>
-                <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mt-1">Clean</div>
+                <div className="font-mono-stats text-2xl font-medium text-clean">{loading ? '—' : (goal ?? '—')}</div>
+                <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mt-1">Goal Days</div>
               </div>
               <div className="bg-card border border-border rounded-2xl p-4 text-center">
-                <div className="font-mono-stats text-2xl font-medium text-red">{loading ? '—' : redDays}</div>
-                <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mt-1">Red Days</div>
+                <div className="font-mono-stats text-2xl font-medium text-foreground">{loading ? '—' : `${fireRate}%`}</div>
+                <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mt-1">Fire Rate</div>
               </div>
             </div>
 
