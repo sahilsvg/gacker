@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Heart, MessageCircle, MapPin, Music, Play, Pause } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePlayer } from '@/contexts/PlayerContext';
-import { toggleLike, FeedItem } from '@/lib/social';
+import { toggleLike, FeedItem, GoalEventType } from '@/lib/social';
 import { timeAgo } from '@/lib/timeAgo';
 import { haptic } from '@/lib/haptics';
 import { useTap } from '@/hooks/useTap';
@@ -93,8 +93,15 @@ const FeedCard = ({ item, onProfileTap, onUpdate, isTabActive }: Props) => {
   };
 
   // Goal event card
-  if (item.event_type === 'goal_set' || item.event_type === 'goal_met') {
-    const isSet = item.event_type === 'goal_set';
+  if (item.event_type) {
+    const days = <span className="text-clean font-semibold">{item.goal_days} day</span>;
+    const copy: Record<GoalEventType, React.ReactNode> = {
+      goal_set: <> just set a {days} goal! Show them some love. 💪</>,
+      goal_25:  <> is a quarter of the way to their {days} goal.</>,
+      goal_50:  <> is halfway to their {days} goal. Keep it going.</>,
+      goal_75:  <> is three quarters of the way to their {days} goal.</>,
+      goal_met: <> just hit their {days} goal! 🎉</>,
+    };
     return (
       <div className="bg-card border border-border rounded-2xl p-4">
         <div className="flex items-center gap-3">
@@ -106,10 +113,7 @@ const FeedCard = ({ item, onProfileTap, onUpdate, isTabActive }: Props) => {
               <button onPointerDown={e => { e.preventDefault(); onProfileTap(item.user_id); }} className="font-semibold active:opacity-60">
                 {item.profile?.name}
               </button>
-              {isSet
-                ? <> just set a <span className="text-clean font-semibold">{item.goal_days} day</span> goal! Show them some love. 💪</>
-                : <> just hit their <span className="text-clean font-semibold">{item.goal_days} day</span> goal! 🎉</>
-              }
+              {copy[item.event_type]}
             </p>
             <p className="text-[10px] text-muted-foreground/60 mt-0.5">{timeAgo(item.created_at)}</p>
           </div>

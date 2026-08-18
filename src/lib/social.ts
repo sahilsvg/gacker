@@ -1,6 +1,10 @@
 import { supabase } from '@/integrations/supabase/client';
 import { createNotification } from '@/lib/notifications';
 
+// goal_25 / goal_50 / goal_75 are progress milestones; goal_met is 100%.
+// Must stay in sync with the check constraint on public.goal_events.
+export type GoalEventType = 'goal_set' | 'goal_25' | 'goal_50' | 'goal_75' | 'goal_met';
+
 export interface FeedItem {
   id: string;
   user_id: string;
@@ -20,8 +24,8 @@ export interface FeedItem {
   likeCount: number;
   iLiked: boolean;
   commentCount: number;
-  // Goal event fields (only present on goal_set / goal_met items)
-  event_type?: 'goal_set' | 'goal_met';
+  // Goal event fields (only present on goal event items)
+  event_type?: GoalEventType;
   goal_days?: number;
 }
 
@@ -57,7 +61,7 @@ const goalEventsToFeedItems = (events: any[], profileMap: Record<string, any>): 
     likeCount: 0,
     iLiked: false,
     commentCount: 0,
-    event_type: e.event_type as 'goal_set' | 'goal_met',
+    event_type: e.event_type as GoalEventType,
     goal_days: e.goal_days,
   }));
 
@@ -139,14 +143,42 @@ export const getMyActivity = async (userId: string): Promise<FeedItem[]> => {
   return [...entryItems, ...goalItems].sort((a, b) => b.created_at.localeCompare(a.created_at));
 };
 
+// Streak-day thresholds at which each milestone fires, ascending.
+// Percentages round up, so a 10-day goal fires at 3 / 5 / 8 / 10.
+// Short goals can collide (a 2-day goal puts 25% and 50% both on day 1);
+// the later, higher milestone wins so you never get two posts on one day.
+export const goalMilestones = (goalDays: number): { type: GoalEventType; day: number }[] => {
+  const byDay = new Map<number, GoalEventType>();
+  const steps: [GoalEventType, number][] = [
+    ['goal_25', 0.25], ['goal_50', 0.5], ['goal_75', 0.75], ['goal_met', 1],
+  ];
+  for (const [type, pct] of steps) {
+    byDay.set(Math.max(1, Math.ceil(goalDays * pct)), type);
+  }
+  return [...byDay.entries()]
+    .map(([day, type]) => ({ day, type }))
+    .sort((a, b) => a.day - b.day);
+};
+
+// Milestones newly crossed by this log. Uses a range rather than equality so a
+// streak that jumps several days at once (e.g. backfilling past entries) still
+// fires everything it passed instead of silently skipping.
+export const crossedGoalMilestones = (goalDays: number, prevStreak: number, newStreak: number) =>
+  goalMilestones(goalDays).filter(m => m.day > prevStreak && m.day <= newStreak);
+
 // Post a goal event and notify followers
 export const postGoalEvent = async (
   userId: string,
-  eventType: 'goal_set' | 'goal_met',
+  eventType: GoalEventType,
   goalDays: number,
   followerIds: string[],
 ) => {
-  await supabase.from('goal_events').insert({ user_id: userId, event_type: eventType, goal_days: goalDays });
+  const { error } = await supabase
+    .from('goal_events')
+    .insert({ user_id: userId, event_type: eventType, goal_days: goalDays });
+  // Surface failures instead of swallowing them — a missing table or a failed
+  // check constraint here is otherwise completely silent.
+  if (error) console.warn('[goal_events] insert failed:', error.message);
   const targets = followerIds.filter(id => id !== userId);
   if (targets.length > 0) {
     await supabase.from('notifications').insert(

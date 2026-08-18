@@ -38,6 +38,18 @@ const notifText = (n: AppNotification): string => {
       const days = n.data?.goal_days;
       return `${handle} just set a ${days} day goal!`;
     }
+    case 'goal_25': {
+      const days = n.data?.goal_days;
+      return `${handle} is a quarter of the way to their ${days} day goal`;
+    }
+    case 'goal_50': {
+      const days = n.data?.goal_days;
+      return `${handle} is halfway to their ${days} day goal`;
+    }
+    case 'goal_75': {
+      const days = n.data?.goal_days;
+      return `${handle} is three quarters of the way to their ${days} day goal`;
+    }
     case 'goal_met': {
       const days = n.data?.goal_days;
       return `${handle} just hit their ${days} day goal! 🎉`;
