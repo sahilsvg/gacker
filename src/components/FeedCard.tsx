@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Heart, MessageCircle, MapPin, Music, Play, Pause } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePlayer } from '@/contexts/PlayerContext';
-import { toggleLike, FeedItem } from '@/lib/social';
+import { toggleLike, FeedItem, GoalEventType } from '@/lib/social';
 import { timeAgo } from '@/lib/timeAgo';
 import { haptic } from '@/lib/haptics';
+import { useTap } from '@/hooks/useTap';
 import CommentsSheet from './CommentsSheet';
 import LikesSheet from './LikesSheet';
 
@@ -34,6 +35,9 @@ const FeedCard = ({ item, onProfileTap, onUpdate, isTabActive }: Props) => {
   const { play, currentSong, isPlaying } = usePlayer();
   const songPlaying = currentSong?.url === item.song_preview_url && isPlaying;
 
+  const songTap = useTap(() => toggleSong());
+  const commentsTap = useTap(() => { haptic.light(); setShowComments(true); });
+
   // Double-tap to like
   const lastTapRef = useRef<number>(0);
 
@@ -57,7 +61,7 @@ const FeedCard = ({ item, onProfileTap, onUpdate, isTabActive }: Props) => {
     await toggleLike(user.id, item.id, item.iLiked, item.user_id);
   };
 
-  const handleCardTap = (e: React.PointerEvent) => {
+  const cardTap = useTap((e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest('button, a')) return;
     const now = Date.now();
     if (now - lastTapRef.current < 350) {
@@ -67,7 +71,7 @@ const FeedCard = ({ item, onProfileTap, onUpdate, isTabActive }: Props) => {
       }
     }
     lastTapRef.current = now;
-  };
+  });
 
   const handleLikePointerDown = (e: React.PointerEvent) => {
     e.preventDefault();
@@ -88,9 +92,39 @@ const FeedCard = ({ item, onProfileTap, onUpdate, isTabActive }: Props) => {
     if (pressTimerRef.current) { clearTimeout(pressTimerRef.current); pressTimerRef.current = null; }
   };
 
+  // Goal event card
+  if (item.event_type) {
+    const days = <span className="text-clean font-semibold">{item.goal_days} day</span>;
+    const copy: Record<GoalEventType, React.ReactNode> = {
+      goal_set: <> just set a {days} goal! Show them some love. 💪</>,
+      goal_25:  <> is a quarter of the way to their {days} goal.</>,
+      goal_50:  <> is halfway to their {days} goal. Keep it going.</>,
+      goal_75:  <> is three quarters of the way to their {days} goal.</>,
+      goal_met: <> just hit their {days} goal! 🎉</>,
+    };
+    return (
+      <div className="bg-card border border-border rounded-2xl p-4">
+        <div className="flex items-center gap-3">
+          <button onPointerDown={e => { e.preventDefault(); onProfileTap(item.user_id); }} className="flex-shrink-0">
+            <Avatar profile={item.profile} />
+          </button>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-foreground leading-snug">
+              <button onPointerDown={e => { e.preventDefault(); onProfileTap(item.user_id); }} className="font-semibold active:opacity-60">
+                {item.profile?.name}
+              </button>
+              {copy[item.event_type]}
+            </p>
+            <p className="text-[10px] text-muted-foreground/60 mt-0.5">{timeAgo(item.created_at)}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
-      <div className="bg-card border border-border rounded-2xl p-4" onPointerDown={handleCardTap}>
+      <div className="bg-card border border-border rounded-2xl p-4" {...cardTap.props}>
         {/* Header */}
         <div className="flex items-center gap-3 mb-3">
           <button onClick={() => onProfileTap(item.user_id)} className="flex-shrink-0">
@@ -152,7 +186,7 @@ const FeedCard = ({ item, onProfileTap, onUpdate, isTabActive }: Props) => {
             </div>
             {item.song_preview_url && (
               <button
-                onPointerDown={e => { e.preventDefault(); toggleSong(); }}
+                {...songTap.props}
                 className="w-11 h-11 rounded-full bg-muted flex items-center justify-center flex-shrink-0 active:scale-95 transition-all"
               >
                 {songPlaying ? <Pause size={14} className="text-foreground" /> : <Play size={14} className="text-foreground ml-0.5" />}
@@ -184,7 +218,7 @@ const FeedCard = ({ item, onProfileTap, onUpdate, isTabActive }: Props) => {
             <span className={`font-medium text-xs ${item.likeCount > 0 ? '' : 'invisible'}`}>{item.likeCount || 0}</span>
           </button>
           <button
-            onPointerDown={e => { e.preventDefault(); haptic.light(); setShowComments(true); }}
+            {...commentsTap.props}
             className="flex items-center gap-0.5 text-muted-foreground transition-all active:scale-95 py-2 pr-2 min-w-[32px]"
           >
             <MessageCircle size={14} />

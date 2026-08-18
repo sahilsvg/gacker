@@ -6,6 +6,7 @@ import { usePlayer } from '@/contexts/PlayerContext';
 import { getLikedSongs, LikedSong, toggleLikedSong } from '@/lib/likedSongs';
 import { useSwipeToDismiss } from '@/hooks/useSwipeToDismiss';
 import { haptic } from '@/lib/haptics';
+import { useTapList } from '@/hooks/useTap';
 import { SongSelection } from './SongPicker';
 
 interface Props {
@@ -23,6 +24,7 @@ const LikedSongsSheet = ({ onSelect, onClose }: Props) => {
 
   const handleClose = () => { setIsClosing(true); setTimeout(onClose, 210); };
   const { onTouchStart, onTouchEnd } = useSwipeToDismiss(handleClose, scrollRef);
+  const tapList = useTapList();
 
   useEffect(() => {
     if (!user) return;
@@ -91,6 +93,9 @@ const LikedSongsSheet = ({ onSelect, onClose }: Props) => {
           )}
           {songs.map(song => {
             const previewing = currentSong?.url === song.song_preview_url && isPlaying;
+            const rowTap = tapList(song.id, () => handleSelect(song));
+            const unlikeTap = tapList(`unlike-${song.id}`, () => handleUnlike(song));
+            const previewTap = tapList(`preview-${song.id}`, () => togglePreview(song));
             return (
               <div key={song.id} className="flex items-center gap-3 px-5 py-3 border-b border-border/40 last:border-0">
                 {song.song_album_art
@@ -99,22 +104,36 @@ const LikedSongsSheet = ({ onSelect, onClose }: Props) => {
                       <Music size={16} className="text-muted-foreground" />
                     </div>
                 }
-                <button
-                  onPointerDown={e => { e.preventDefault(); handleSelect(song); }}
-                  className="flex-1 min-w-0 text-left active:opacity-60 transition-opacity"
+                <div
+                  {...rowTap}
+                  className="flex-1 min-w-0 text-left active:opacity-60 transition-opacity select-none"
                 >
                   <p className="text-sm font-semibold text-foreground truncate">{song.song_name}</p>
                   <p className="text-xs text-muted-foreground truncate">{song.song_artist}</p>
-                </button>
+                </div>
                 <button
-                  onPointerDown={e => { e.preventDefault(); handleUnlike(song); }}
+                  {...(() => {
+                    const h = unlikeTap;
+                    return {
+                      onPointerDown: (e: React.PointerEvent) => { e.stopPropagation(); h.onPointerDown(e); },
+                      onPointerMove: (e: React.PointerEvent) => { e.stopPropagation(); h.onPointerMove(e); },
+                      onPointerUp:   (e: React.PointerEvent) => { e.stopPropagation(); h.onPointerUp(e); },
+                    };
+                  })()}
                   className="w-11 h-11 flex items-center justify-center text-red flex-shrink-0 active:scale-90 transition-all"
                 >
                   <Heart size={17} fill="currentColor" />
                 </button>
                 {song.song_preview_url && (
                   <button
-                    onPointerDown={e => { e.preventDefault(); togglePreview(song); }}
+                    {...(() => {
+                      const h = previewTap;
+                      return {
+                        onPointerDown: (e: React.PointerEvent) => { e.stopPropagation(); h.onPointerDown(e); },
+                        onPointerMove: (e: React.PointerEvent) => { e.stopPropagation(); h.onPointerMove(e); },
+                        onPointerUp:   (e: React.PointerEvent) => { e.stopPropagation(); h.onPointerUp(e); },
+                      };
+                    })()}
                     className="w-11 h-11 rounded-full bg-muted flex items-center justify-center flex-shrink-0 active:scale-95 transition-all"
                   >
                     {previewing

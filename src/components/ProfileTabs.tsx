@@ -4,6 +4,7 @@ import { Entry } from '@/lib/entries';
 import { usePlayer } from '@/contexts/PlayerContext';
 import { getLikedSongs, toggleLikedSong, onLikeChange } from '@/lib/likedSongs';
 import { haptic } from '@/lib/haptics';
+import { useTapList } from '@/hooks/useTap';
 import CalendarView from './CalendarView';
 import EntryDetailSheet from './EntryDetailSheet';
 
@@ -48,6 +49,9 @@ const ProfileTabs = ({ entries, currentUserId, canSeeContent, lockedMessage }: P
 
   const imagePosts = sortedEntries.filter(({ entry }) => !!entry.image_url);
   const musicPosts = sortedEntries.filter(({ entry }) => !!entry.song_name && !!entry.song_preview_url);
+
+  // Swipe-aware tap handlers for lists
+  const tapList = useTapList();
 
   // Per-song last-tap timestamps for double-tap detection
   const lastTapMap = useRef<Map<string, number>>(new Map());
@@ -108,17 +112,17 @@ const ProfileTabs = ({ entries, currentUserId, canSeeContent, lockedMessage }: P
             ) : (
               <div className="grid grid-cols-3 gap-0.5">
                 {imagePosts.map(({ dateKey, entry }) => (
-                  <button
+                  <div
                     key={dateKey}
-                    onPointerDown={e => { e.preventDefault(); setEntryDetail({ dateKey, entry }); }}
+                    {...tapList(dateKey, () => setEntryDetail({ dateKey, entry }))}
                     className="aspect-square overflow-hidden active:opacity-80 transition-opacity"
                   >
                     <img
                       src={entry.image_url!}
                       alt=""
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover pointer-events-none"
                     />
-                  </button>
+                  </div>
                 ))}
               </div>
             )
@@ -135,8 +139,7 @@ const ProfileTabs = ({ entries, currentUserId, canSeeContent, lockedMessage }: P
                   const previewing = currentSong?.url === previewUrl && isPlaying;
                   const liked = likedUrls.has(previewUrl);
 
-                  const handleRowTap = (e: React.PointerEvent) => {
-                    e.preventDefault();
+                  const rowTapHandlers = tapList(previewUrl, (e) => {
                     const now = Date.now();
                     const last = lastTapMap.current.get(previewUrl) ?? 0;
                     lastTapMap.current.set(previewUrl, now);
@@ -150,12 +153,12 @@ const ProfileTabs = ({ entries, currentUserId, canSeeContent, lockedMessage }: P
                       haptic.light();
                       play({ url: previewUrl, name: entry.song_name!, artist: entry.song_artist!, albumArt: entry.song_album_art ?? null });
                     }
-                  };
+                  });
 
                   return (
                     <div
                       key={dateKey}
-                      onPointerDown={handleRowTap}
+                      {...rowTapHandlers}
                       className="flex items-center gap-3 py-3 active:opacity-70 transition-opacity select-none"
                     >
                       <div className="relative flex-shrink-0">
@@ -176,12 +179,14 @@ const ProfileTabs = ({ entries, currentUserId, canSeeContent, lockedMessage }: P
                         <p className="text-xs text-muted-foreground truncate">{entry.song_artist}</p>
                       </div>
                       <button
-                        onPointerDown={e => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          haptic.light();
-                          handleToggleLike(previewUrl, entry.song_name!, entry.song_artist!, entry.song_album_art);
-                        }}
+                        {...(() => {
+                          const h = tapList(`heart-${previewUrl}`, () => { haptic.light(); handleToggleLike(previewUrl, entry.song_name!, entry.song_artist!, entry.song_album_art); });
+                          return {
+                            onPointerDown: (e: React.PointerEvent) => { e.stopPropagation(); h.onPointerDown(e); },
+                            onPointerMove: (e: React.PointerEvent) => { e.stopPropagation(); h.onPointerMove(e); },
+                            onPointerUp:   (e: React.PointerEvent) => { e.stopPropagation(); h.onPointerUp(e); },
+                          };
+                        })()}
                         className="flex-shrink-0 w-9 h-9 flex items-center justify-center active:scale-90 transition-all"
                       >
                         <Heart

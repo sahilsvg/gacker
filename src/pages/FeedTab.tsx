@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { UserPlus, Bell } from 'lucide-react';
+import { useTap } from '@/hooks/useTap';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFeed, getMyActivity, FeedItem } from '@/lib/social';
 import { getUnreadCount } from '@/lib/notifications';
@@ -28,6 +29,8 @@ const FeedTab = ({ isActive, resetKey }: Props) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const loadingRef = useRef(false);
+  const bellTap = useTap(() => { setShowNotifications(true); setUnreadCount(0); });
+  const findFriendsTap = useTap(() => setView('search'));
 
   const load = useCallback(async (silent = false) => {
     if (!user || loadingRef.current) return;
@@ -106,7 +109,7 @@ const FeedTab = ({ isActive, resetKey }: Props) => {
           <div className="flex items-center gap-2">
             {/* Bell */}
             <button
-              onPointerDown={e => { e.preventDefault(); setShowNotifications(true); setUnreadCount(0); }}
+              {...bellTap.props}
               className="relative p-2 text-muted-foreground active:opacity-60 transition-opacity"
             >
               <Bell size={20} />
@@ -117,7 +120,7 @@ const FeedTab = ({ isActive, resetKey }: Props) => {
               )}
             </button>
             <button
-              onPointerDown={e => { e.preventDefault(); setView('search'); }}
+              {...findFriendsTap.props}
               className="flex items-center gap-1.5 px-3 py-2 bg-card border border-border rounded-xl text-sm font-medium text-foreground transition-all active:scale-95"
             >
               <UserPlus size={15} />

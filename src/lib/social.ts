@@ -1,6 +1,10 @@
 import { supabase } from '@/integrations/supabase/client';
 import { createNotification } from '@/lib/notifications';
 
+// goal_25 / goal_50 / goal_75 are progress milestones; goal_met is 100%.
+// Must stay in sync with the check constraint on public.goal_events.
+export type GoalEventType = 'goal_set' | 'goal_25' | 'goal_50' | 'goal_75' | 'goal_met';
+
 export interface FeedItem {
   id: string;
   user_id: string;
@@ -20,6 +24,9 @@ export interface FeedItem {
   likeCount: number;
   iLiked: boolean;
   commentCount: number;
+  // Goal event fields (only present on goal event items)
+  event_type?: GoalEventType;
+  goal_days?: number;
 }
 
 export interface Comment {
@@ -42,6 +49,22 @@ export interface SearchProfile {
   avatar_url: string | null;
 }
 
+const goalEventsToFeedItems = (events: any[], profileMap: Record<string, any>): FeedItem[] =>
+  events.map(e => ({
+    id: e.id,
+    user_id: e.user_id,
+    date: e.created_at.slice(0, 10),
+    clean: true,
+    notes: null,
+    created_at: e.created_at,
+    profile: profileMap[e.user_id],
+    likeCount: 0,
+    iLiked: false,
+    commentCount: 0,
+    event_type: e.event_type as GoalEventType,
+    goal_days: e.goal_days,
+  }));
+
 export const getFeed = async (userId: string): Promise<FeedItem[]> => {
   const { data: follows } = await supabase
     .from('follows')
@@ -52,59 +75,121 @@ export const getFeed = async (userId: string): Promise<FeedItem[]> => {
   const followingIds = (follows ?? []).map(f => f.following_id);
   if (followingIds.length === 0) return [];
 
-  const [entriesRes, profilesRes] = await Promise.all([
+  const [entriesRes, profilesRes, goalEventsRes] = await Promise.all([
     supabase.from('entries').select('*').in('user_id', followingIds).order('created_at', { ascending: false }).limit(50),
     supabase.from('profiles').select('id, name, handle, avatar_url').in('id', followingIds),
+    supabase.from('goal_events').select('*').in('user_id', followingIds).order('created_at', { ascending: false }).limit(50),
   ]);
 
   const entries = entriesRes.data ?? [];
   const profileMap = Object.fromEntries((profilesRes.data ?? []).map(p => [p.id, p]));
   const entryIds = entries.map(e => e.id);
-  if (entryIds.length === 0) return [];
 
-  const [likesRes, commentsRes] = await Promise.all([
-    supabase.from('likes').select('entry_id, user_id').in('entry_id', entryIds),
-    supabase.from('comments').select('entry_id').in('entry_id', entryIds),
-  ]);
+  const [likesRes, commentsRes] = entryIds.length > 0
+    ? await Promise.all([
+        supabase.from('likes').select('entry_id, user_id').in('entry_id', entryIds),
+        supabase.from('comments').select('entry_id').in('entry_id', entryIds),
+      ])
+    : [{ data: [] }, { data: [] }];
 
   const likes = likesRes.data ?? [];
   const comments = commentsRes.data ?? [];
 
-  return entries.map(entry => ({
+  const entryItems: FeedItem[] = entries.map(entry => ({
     ...entry,
     profile: profileMap[entry.user_id],
     likeCount: likes.filter(l => l.entry_id === entry.id).length,
     iLiked: likes.some(l => l.entry_id === entry.id && l.user_id === userId),
     commentCount: comments.filter(c => c.entry_id === entry.id).length,
   }));
+
+  const goalItems = goalEventsToFeedItems(goalEventsRes.data ?? [], profileMap);
+
+  return [...entryItems, ...goalItems].sort((a, b) => b.created_at.localeCompare(a.created_at));
 };
 
 export const getMyActivity = async (userId: string): Promise<FeedItem[]> => {
-  const [entriesRes, profileRes] = await Promise.all([
+  const [entriesRes, profileRes, goalEventsRes] = await Promise.all([
     supabase.from('entries').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(50),
     supabase.from('profiles').select('id, name, handle, avatar_url').eq('id', userId).maybeSingle(),
+    supabase.from('goal_events').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(50),
   ]);
 
   const entries = entriesRes.data ?? [];
   const profile = profileRes.data;
-  if (entries.length === 0) return [];
+  const profileMap = profile ? { [profile.id]: profile } : {};
 
   const entryIds = entries.map(e => e.id);
-  const [likesRes, commentsRes] = await Promise.all([
-    supabase.from('likes').select('entry_id, user_id').in('entry_id', entryIds),
-    supabase.from('comments').select('entry_id').in('entry_id', entryIds),
-  ]);
+  const [likesRes, commentsRes] = entryIds.length > 0
+    ? await Promise.all([
+        supabase.from('likes').select('entry_id, user_id').in('entry_id', entryIds),
+        supabase.from('comments').select('entry_id').in('entry_id', entryIds),
+      ])
+    : [{ data: [] }, { data: [] }];
 
   const likes = likesRes.data ?? [];
   const comments = commentsRes.data ?? [];
 
-  return entries.map(entry => ({
+  const entryItems: FeedItem[] = entries.map(entry => ({
     ...entry,
     profile,
     likeCount: likes.filter(l => l.entry_id === entry.id).length,
     iLiked: likes.some(l => l.entry_id === entry.id && l.user_id === userId),
     commentCount: comments.filter(c => c.entry_id === entry.id).length,
   }));
+
+  const goalItems = goalEventsToFeedItems(goalEventsRes.data ?? [], profileMap);
+
+  return [...entryItems, ...goalItems].sort((a, b) => b.created_at.localeCompare(a.created_at));
+};
+
+// Streak-day thresholds at which each milestone fires, ascending.
+// Percentages round up, so a 10-day goal fires at 3 / 5 / 8 / 10.
+// Short goals can collide (a 2-day goal puts 25% and 50% both on day 1);
+// the later, higher milestone wins so you never get two posts on one day.
+export const goalMilestones = (goalDays: number): { type: GoalEventType; day: number }[] => {
+  const byDay = new Map<number, GoalEventType>();
+  const steps: [GoalEventType, number][] = [
+    ['goal_25', 0.25], ['goal_50', 0.5], ['goal_75', 0.75], ['goal_met', 1],
+  ];
+  for (const [type, pct] of steps) {
+    byDay.set(Math.max(1, Math.ceil(goalDays * pct)), type);
+  }
+  return [...byDay.entries()]
+    .map(([day, type]) => ({ day, type }))
+    .sort((a, b) => a.day - b.day);
+};
+
+// Milestones newly crossed by this log. Uses a range rather than equality so a
+// streak that jumps several days at once (e.g. backfilling past entries) still
+// fires everything it passed instead of silently skipping.
+export const crossedGoalMilestones = (goalDays: number, prevStreak: number, newStreak: number) =>
+  goalMilestones(goalDays).filter(m => m.day > prevStreak && m.day <= newStreak);
+
+// Post a goal event and notify followers
+export const postGoalEvent = async (
+  userId: string,
+  eventType: GoalEventType,
+  goalDays: number,
+  followerIds: string[],
+) => {
+  const { error } = await supabase
+    .from('goal_events')
+    .insert({ user_id: userId, event_type: eventType, goal_days: goalDays });
+  // Surface failures instead of swallowing them — a missing table or a failed
+  // check constraint here is otherwise completely silent.
+  if (error) console.warn('[goal_events] insert failed:', error.message);
+  const targets = followerIds.filter(id => id !== userId);
+  if (targets.length > 0) {
+    await supabase.from('notifications').insert(
+      targets.map(uid => ({
+        user_id: uid,
+        type: eventType,
+        actor_id: userId,
+        data: { goal_days: goalDays },
+      }))
+    );
+  }
 };
 
 export const toggleLike = async (userId: string, entryId: string, iLiked: boolean, entryOwnerId?: string) => {
@@ -328,7 +413,7 @@ export const removeFollower = async (followerId: string, followingId: string) =>
 export const getUserProfile = async (userId: string) => {
   const { data } = await supabase
     .from('profiles')
-    .select('id, name, handle, avatar_url')
+    .select('id, name, handle, avatar_url, bio')
     .eq('id', userId)
     .maybeSingle();
   return data;

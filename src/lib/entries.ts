@@ -85,7 +85,14 @@ export const computeStats = (entries: Record<string, Entry>) => {
     else redDays++;
   }
 
+  // If the user hasn't logged today yet, start the streak check from yesterday
+  // so a streak built up over prior days doesn't reset to 0 at midnight.
+  const todayKey = formatDateKey(today);
   const check = new Date(today);
+  if (!(todayKey in entries)) {
+    check.setDate(check.getDate() - 1);
+  }
+
   while (true) {
     const key = formatDateKey(check);
     if (!(key in entries)) break;

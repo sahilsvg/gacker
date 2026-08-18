@@ -5,6 +5,7 @@ import { getUserProfile, getFollowStatus, FollowStatus, followUser, unfollowUser
 import { fetchEntries, computeStats, Entry } from '@/lib/entries';
 import ProfileTabs from '@/components/ProfileTabs';
 import FollowListSheet from '@/components/FollowListSheet';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Props {
   userId: string;
@@ -18,6 +19,7 @@ const UserProfile = ({ userId, onBack }: Props) => {
   const [entries, setEntries] = useState<Record<string, Entry>>({});
   const [followStatus, setFollowStatus] = useState<FollowStatus>('none');
   const [counts, setCounts] = useState({ followers: 0, following: 0 });
+  const [goal, setGoal] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [followSheet, setFollowSheet] = useState<'followers' | 'following' | null>(null);
 
@@ -30,11 +32,13 @@ const UserProfile = ({ userId, onBack }: Props) => {
       fetchEntries(userId),
       getFollowStatus(user.id, userId),
       getFollowerCounts(userId),
-    ]).then(([prof, ents, status, c]) => {
+      supabase.from('profiles').select('clean_day_goal').eq('id', userId).maybeSingle(),
+    ]).then(([prof, ents, status, c, profileRes]) => {
       setProfile(prof);
       setEntries(ents);
       setFollowStatus(status);
       setCounts(c);
+      setGoal((profileRes as any).data?.clean_day_goal ?? null);
       setLoading(false);
     });
   }, [userId, user]);
@@ -55,6 +59,8 @@ const UserProfile = ({ userId, onBack }: Props) => {
   };
 
   const { streak, cleanDays, redDays } = computeStats(entries);
+  const total = cleanDays + redDays;
+  const fireRate = total > 0 ? Math.round((redDays / total) * 100) : 0;
 
   const handleProfileTap = (tappedId: string) => {
     // If they tap their own profile from within this list, go back
@@ -112,6 +118,11 @@ const UserProfile = ({ userId, onBack }: Props) => {
               )}
             </div>
 
+            {/* Bio */}
+            {profile?.bio && (
+              <p className="text-sm text-foreground/80 mb-4 -mt-2">{profile.bio}</p>
+            )}
+
             {/* Follower counts — tappable only if accepted or own profile */}
             <div className="flex gap-5 mb-6">
               <button
@@ -137,12 +148,12 @@ const UserProfile = ({ userId, onBack }: Props) => {
                 <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mt-1">Streak</div>
               </div>
               <div className="bg-card border border-border rounded-2xl p-4 text-center">
-                <div className="font-mono-stats text-2xl font-medium text-clean">{canSeeContent ? cleanDays : '—'}</div>
-                <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mt-1">Clean</div>
+                <div className="font-mono-stats text-2xl font-medium text-clean">{canSeeContent ? (goal ?? '—') : '—'}</div>
+                <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mt-1">Goal Days</div>
               </div>
               <div className="bg-card border border-border rounded-2xl p-4 text-center">
-                <div className="font-mono-stats text-2xl font-medium text-red">{canSeeContent ? redDays : '—'}</div>
-                <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mt-1">Red Days</div>
+                <div className="font-mono-stats text-2xl font-medium text-foreground">{canSeeContent ? `${fireRate}%` : '—'}</div>
+                <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mt-1">Fire Rate</div>
               </div>
             </div>
 

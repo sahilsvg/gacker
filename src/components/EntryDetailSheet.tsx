@@ -1,9 +1,11 @@
 import React, { useState, useRef } from 'react';
+import ReactDOM from 'react-dom';
 import { X, Music, Play, Pause } from 'lucide-react';
 import { Entry } from '@/lib/entries';
 import { timeAgo } from '@/lib/timeAgo';
 import { usePlayer } from '@/contexts/PlayerContext';
 import { useSwipeToDismiss } from '@/hooks/useSwipeToDismiss';
+import { useTap } from '@/hooks/useTap';
 
 interface Props {
   dateKey: string;
@@ -28,8 +30,9 @@ const EntryDetailSheet = ({ dateKey, entry, onClose }: Props) => {
     if (!entry.song_preview_url) return;
     globalPlay({ url: entry.song_preview_url, name: entry.song_name ?? '', artist: entry.song_artist ?? '', albumArt: entry.song_album_art ?? null });
   };
+  const songTap = useTap(togglePlay);
 
-  return (
+  const sheet = (
     <div className="fixed inset-0 z-[200] flex flex-col justify-end">
       <div className="absolute inset-0 bg-black/60" onPointerDown={handleClose} />
       <div
@@ -92,7 +95,7 @@ const EntryDetailSheet = ({ dateKey, entry, onClose }: Props) => {
                 </div>
                 {entry.song_preview_url && (
                   <button
-                    onPointerDown={e => { e.preventDefault(); togglePlay(); }}
+                    {...songTap.props}
                     className="w-11 h-11 rounded-full bg-muted flex items-center justify-center flex-shrink-0 active:scale-95 transition-all"
                   >
                     {playing
@@ -118,6 +121,8 @@ const EntryDetailSheet = ({ dateKey, entry, onClose }: Props) => {
       </div>
     </div>
   );
+
+  return ReactDOM.createPortal(sheet, document.body);
 };
 
 export default EntryDetailSheet;

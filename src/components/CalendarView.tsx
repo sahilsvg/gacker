@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { formatDateKey, Entry } from '@/lib/entries';
+import { useTapList } from '@/hooks/useTap';
 
 interface Props {
   entries: Record<string, Entry>;
@@ -32,6 +33,7 @@ const MonthGrid = ({
   const dates = buildMonth(year, month);
   const firstDow = dates[0].getDay();
   const label = dates[0].toLocaleString('en-US', { month: 'long', year: 'numeric' });
+  const tapList = useTapList();
 
   return (
     <div>
@@ -73,11 +75,7 @@ const MonthGrid = ({
               <span className="text-[9px] text-muted-foreground mb-0.5">{d.getDate()}</span>
               <button
                 disabled={!tappable}
-                onPointerDown={e => {
-                  if (!tappable || !entry) return;
-                  e.preventDefault();
-                  onDayTap!(key, entry);
-                }}
+                {...(tappable && entry ? tapList(key, () => onDayTap!(key, entry)) : {})}
                 className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold transition-all ${cellClass} ${tappable ? 'active:scale-90' : ''}`}
               >
                 {symbol}

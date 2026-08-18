@@ -17,6 +17,9 @@ ios/App/App/public/
 ios/App/Pods/
 ios/App/App.xcworkspace/xcuserdata/
 *.xcuserstate
+# xcodebuild -derivedDataPath output; hundreds of MB
+build/
+DerivedData/
 
 # Capacitor generated
 .capacitor/

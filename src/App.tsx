@@ -97,7 +97,7 @@ const AppShell = () => {
           <FeedTab isActive={activeTab === 'feed'} resetKey={resetKeys.feed} />
         </div>
         <div key={`ganalytics-${resetKeys.ganalytics}`} className={activeTab === 'ganalytics' ? 'block h-full animate-tab-enter' : 'hidden'}>
-          <GanalyticsTab resetKey={resetKeys.ganalytics} />
+          <GanalyticsTab resetKey={resetKeys.ganalytics} isActive={activeTab === 'ganalytics'} />
         </div>
         <div key={`profile-${resetKeys.profile}`} className={activeTab === 'profile' ? 'block h-full animate-tab-enter' : 'hidden'}>
           <ProfileTab isActive={activeTab === 'profile'} resetKey={resetKeys.profile} />

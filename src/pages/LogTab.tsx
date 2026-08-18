@@ -4,7 +4,7 @@ import { ChevronDown, ImagePlus, X } from 'lucide-react';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDateKey, upsertEntry, fetchEntries, computeStats, Entry } from '@/lib/entries';
-import { getFollowerIds, searchFollowedByHandle, resolveHandles, SearchProfile } from '@/lib/social';
+import { getFollowerIds, searchFollowedByHandle, resolveHandles, SearchProfile, postGoalEvent, crossedGoalMilestones } from '@/lib/social';
 import { createNotificationsForMany, createNotification } from '@/lib/notifications';
 import { supabase } from '@/integrations/supabase/client';
 import SongPicker, { SongSelection } from '@/components/SongPicker';
@@ -201,6 +201,22 @@ const LogTab = ({ resetKey: _, isActive }: { resetKey: number; isActive?: boolea
         getFollowerIds(user.id).then(ids => {
           createNotificationsForMany(ids, 'streak_milestone', user.id, { streak_count: streak });
         });
+      }
+      // Fire any goal milestones (25/50/75/100%) this log just crossed.
+      // Compared against the streak before this entry so each one posts once
+      // per streak, and a multi-day jump still fires everything it passed.
+      const { data: profileData } = await supabase
+        .from('profiles').select('clean_day_goal').eq('id', user.id).maybeSingle();
+      const goalDays = profileData?.clean_day_goal;
+      if (goalDays) {
+        const prevStreak = computeStats(entries).streak;
+        const crossed = crossedGoalMilestones(goalDays, prevStreak, streak);
+        if (crossed.length > 0) {
+          const ids = await getFollowerIds(user.id);
+          for (const m of crossed) {
+            await postGoalEvent(user.id, m.type, goalDays, ids);
+          }
+        }
       }
     }
     setTimeout(() => setAnimating(false), 1200);
