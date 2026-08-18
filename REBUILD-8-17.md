@@ -152,7 +152,35 @@ Three independent causes, all needed fixing:
    building against 5.3 long after the packages were bumped — a real trap, worth
    re-clearing DerivedData any time package versions change.
 
-### B2. Blank white/dark screen on launch — NOT SOLVED
+### B2. Blank screen on launch — SOLVED during the rebuild
+
+> **Root cause: a temporal-dead-zone bug in the Sisyphus code itself.**
+>
+> In `SisyphusAnimation`, `fallRotTo` interpolated `by`:
+> ```ts
+> const fallRotTo = `683 0 ${by}`;   // line 125
+> ...
+> const bx = 30, by = -14, br = 14;  // line 132
+> ```
+> `const a = f(b), b = 1` leaves `b` in the temporal dead zone, so the component
+> threw `ReferenceError` on its very first render. `R` in the minified error was
+> simply `by`.
+>
+> It blanked the **whole app**, not just Ganalytics, because `App.tsx` mounts every
+> tab and hides the inactive ones with CSS — so `SisyphusAnimation` renders at startup.
+>
+> Fix: declare `bx, by, br` above `fallRotTo`. One line moved.
+>
+> Nothing to do with Radix, Rollup, WKWebView, or Capacitor. Every bundler
+> workaround below was chasing a symptom. The reason it looked bundler-shaped is
+> that minification renamed `by` to `R`, which read like a library-internal symbol.
+>
+> **Lesson for next time:** when a startup `ReferenceError` names a single-letter
+> variable, find that variable in the built bundle first (`grep` the declaration and
+> its first use). That takes two minutes and points straight at the source line.
+> It is much faster than hypothesising about chunking strategy.
+
+Original symptom and the dead ends, kept for the record:
 
 Symptom: app shows for a split second, then goes blank. Xcode console:
 
@@ -178,7 +206,7 @@ JavaScriptCore. Everything below was tried and **none of it fixed the blank scre
 the `@originjs/vite-plugin-commonjs` dependency should be dropped. `8/17` starts with
 main's plain `vite.config.ts`.
 
-**What is actually known:**
+**What was known before the cause was found:**
 
 - A build from **July 5** (bundle id `com.gacker.app`, still installed on the simulator)
   runs fine. It is a plain single bundle with no `build` config at all.
@@ -188,14 +216,13 @@ main's plain `vite.config.ts`.
   8.4.0 → 8.5.0 bump (and whatever transitive updates `package-lock.json` picked up —
   that diff is ~495 lines), not any of the feature work.
 
-**The one experiment that was never run, and should be step 1 of debugging on `8/17`:**
+**How it was actually found:** build pristine main against the current `node_modules` —
+it ran clean, clearing the dependency bump. Then re-apply the feature work in stages,
+launching the simulator after each: goals/bios/useTap ✓, goal events ✓, sheet fixes ✓,
+Sisyphus ✗. That isolated one file, and grepping the built bundle for the declaration
+of `R` isolated one line.
 
-> Build **pristine main** against the **current `node_modules`**. If the `R` error appears
-> there too, the cause is the dependency bump and the fix is on the dependency side
-> (pin back, or bump Radix/React deliberately) — and none of the feature work is implicated.
-> If pristine main is clean, bisect the feature work back in file by file.
-
-Splitting the two concerns is the whole point of this rebuild: `8/6` mixed feature work
+Splitting the two concerns was the whole point of the rebuild: `8/6` mixed feature work
 and build debugging into one unrunnable pile, so neither could be evaluated.
 
 ---
