@@ -179,12 +179,14 @@ const ProfileTabs = ({ entries, currentUserId, canSeeContent, lockedMessage }: P
                         <p className="text-xs text-muted-foreground truncate">{entry.song_artist}</p>
                       </div>
                       <button
-                        onPointerDown={e => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          haptic.light();
-                          handleToggleLike(previewUrl, entry.song_name!, entry.song_artist!, entry.song_album_art);
-                        }}
+                        {...(() => {
+                          const h = tapList(`heart-${previewUrl}`, () => { haptic.light(); handleToggleLike(previewUrl, entry.song_name!, entry.song_artist!, entry.song_album_art); });
+                          return {
+                            onPointerDown: (e: React.PointerEvent) => { e.stopPropagation(); h.onPointerDown(e); },
+                            onPointerMove: (e: React.PointerEvent) => { e.stopPropagation(); h.onPointerMove(e); },
+                            onPointerUp:   (e: React.PointerEvent) => { e.stopPropagation(); h.onPointerUp(e); },
+                          };
+                        })()}
                         className="flex-shrink-0 w-9 h-9 flex items-center justify-center active:scale-90 transition-all"
                       >
                         <Heart
