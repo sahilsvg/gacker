@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { fetchEntries, computeStats, Entry } from '@/lib/entries';
 import { supabase } from '@/integrations/supabase/client';
 import { haptic } from '@/lib/haptics';
+import { useTap } from '@/hooks/useTap';
 import { postGoalEvent, getFollowerIds } from '@/lib/social';
 
 // ─── Goal Picker Sheet ───────────────────────────────────────────────────────
@@ -22,6 +23,11 @@ const GoalPicker = ({ current, onSave, onClose }: {
   const [isClosing, setIsClosing] = useState(false);
 
   const handleClose = () => { setIsClosing(true); setTimeout(onClose, 210); };
+
+  // Swipe-aware: a scroll gesture that happens to end over the button must not
+  // save. Saving posts a goal_set to every follower, so an accidental fire is
+  // not recoverable.
+  const saveTap = useTap(() => { haptic.medium(); onSave(selected); handleClose(); });
 
   const onScroll = () => {
     const el = listRef.current;
@@ -79,7 +85,7 @@ const GoalPicker = ({ current, onSave, onClose }: {
           </div>
         </div>
         <button
-          onPointerDown={e => { e.preventDefault(); haptic.medium(); onSave(selected); handleClose(); }}
+          {...saveTap.props}
           className="w-full h-14 rounded-2xl bg-clean text-clean-foreground font-semibold text-base active:scale-95 transition-all"
         >
           Set Goal — {selected} {selected === 1 ? 'day' : 'days'}
