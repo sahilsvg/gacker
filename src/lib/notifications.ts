@@ -9,7 +9,9 @@ export type NotificationType =
   | 'comment_reply'
   | 'mention_comment'
   | 'mention_entry'
-  | 'streak_milestone';
+  | 'streak_milestone'
+  | 'goal_set'
+  | 'goal_met';
 
 export interface AppNotification {
   id: string;

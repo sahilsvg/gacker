@@ -35,6 +35,9 @@ const FeedCard = ({ item, onProfileTap, onUpdate, isTabActive }: Props) => {
   const { play, currentSong, isPlaying } = usePlayer();
   const songPlaying = currentSong?.url === item.song_preview_url && isPlaying;
 
+  const songTap = useTap(() => toggleSong());
+  const commentsTap = useTap(() => { haptic.light(); setShowComments(true); });
+
   // Double-tap to like
   const lastTapRef = useRef<number>(0);
 
@@ -88,6 +91,32 @@ const FeedCard = ({ item, onProfileTap, onUpdate, isTabActive }: Props) => {
   const handleLikePointerLeave = () => {
     if (pressTimerRef.current) { clearTimeout(pressTimerRef.current); pressTimerRef.current = null; }
   };
+
+  // Goal event card
+  if (item.event_type === 'goal_set' || item.event_type === 'goal_met') {
+    const isSet = item.event_type === 'goal_set';
+    return (
+      <div className="bg-card border border-border rounded-2xl p-4">
+        <div className="flex items-center gap-3">
+          <button onPointerDown={e => { e.preventDefault(); onProfileTap(item.user_id); }} className="flex-shrink-0">
+            <Avatar profile={item.profile} />
+          </button>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-foreground leading-snug">
+              <button onPointerDown={e => { e.preventDefault(); onProfileTap(item.user_id); }} className="font-semibold active:opacity-60">
+                {item.profile?.name}
+              </button>
+              {isSet
+                ? <> just set a <span className="text-clean font-semibold">{item.goal_days} day</span> goal! Show them some love. 💪</>
+                : <> just hit their <span className="text-clean font-semibold">{item.goal_days} day</span> goal! 🎉</>
+              }
+            </p>
+            <p className="text-[10px] text-muted-foreground/60 mt-0.5">{timeAgo(item.created_at)}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -153,7 +182,7 @@ const FeedCard = ({ item, onProfileTap, onUpdate, isTabActive }: Props) => {
             </div>
             {item.song_preview_url && (
               <button
-                onPointerDown={e => { e.preventDefault(); toggleSong(); }}
+                {...songTap.props}
                 className="w-11 h-11 rounded-full bg-muted flex items-center justify-center flex-shrink-0 active:scale-95 transition-all"
               >
                 {songPlaying ? <Pause size={14} className="text-foreground" /> : <Play size={14} className="text-foreground ml-0.5" />}
@@ -185,7 +214,7 @@ const FeedCard = ({ item, onProfileTap, onUpdate, isTabActive }: Props) => {
             <span className={`font-medium text-xs ${item.likeCount > 0 ? '' : 'invisible'}`}>{item.likeCount || 0}</span>
           </button>
           <button
-            onPointerDown={e => { e.preventDefault(); haptic.light(); setShowComments(true); }}
+            {...commentsTap.props}
             className="flex items-center gap-0.5 text-muted-foreground transition-all active:scale-95 py-2 pr-2 min-w-[32px]"
           >
             <MessageCircle size={14} />

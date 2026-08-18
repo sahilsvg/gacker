@@ -34,6 +34,14 @@ const notifText = (n: AppNotification): string => {
         : `${handle} mentioned you in a comment`;
     case 'mention_entry':
       return `${handle} mentioned you in a post`;
+    case 'goal_set': {
+      const days = n.data?.goal_days;
+      return `${handle} just set a ${days} day goal!`;
+    }
+    case 'goal_met': {
+      const days = n.data?.goal_days;
+      return `${handle} just hit their ${days} day goal! 🎉`;
+    }
     case 'streak_milestone': {
       const count = n.data?.streak_count;
       const label = count >= 365 ? '1 year' : count >= 30 ? `${Math.floor(count / 30)} month${count >= 60 ? 's' : ''}` : `${count} days`;

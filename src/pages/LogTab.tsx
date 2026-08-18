@@ -4,7 +4,7 @@ import { ChevronDown, ImagePlus, X } from 'lucide-react';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDateKey, upsertEntry, fetchEntries, computeStats, Entry } from '@/lib/entries';
-import { getFollowerIds, searchFollowedByHandle, resolveHandles, SearchProfile } from '@/lib/social';
+import { getFollowerIds, searchFollowedByHandle, resolveHandles, SearchProfile, postGoalEvent } from '@/lib/social';
 import { createNotificationsForMany, createNotification } from '@/lib/notifications';
 import { supabase } from '@/integrations/supabase/client';
 import SongPicker, { SongSelection } from '@/components/SongPicker';
@@ -201,6 +201,14 @@ const LogTab = ({ resetKey: _, isActive }: { resetKey: number; isActive?: boolea
         getFollowerIds(user.id).then(ids => {
           createNotificationsForMany(ids, 'streak_milestone', user.id, { streak_count: streak });
         });
+      }
+      // Check if goal just met (streak hit the goal exactly this log)
+      const { data: profileData } = await supabase
+        .from('profiles').select('clean_day_goal').eq('id', user.id).maybeSingle();
+      const goalDays = profileData?.clean_day_goal;
+      if (goalDays && streak === goalDays) {
+        const ids = await getFollowerIds(user.id);
+        await postGoalEvent(user.id, 'goal_met', goalDays, ids);
       }
     }
     setTimeout(() => setAnimating(false), 1200);

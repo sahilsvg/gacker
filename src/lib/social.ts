@@ -20,6 +20,9 @@ export interface FeedItem {
   likeCount: number;
   iLiked: boolean;
   commentCount: number;
+  // Goal event fields (only present on goal_set / goal_met items)
+  event_type?: 'goal_set' | 'goal_met';
+  goal_days?: number;
 }
 
 export interface Comment {
@@ -42,6 +45,22 @@ export interface SearchProfile {
   avatar_url: string | null;
 }
 
+const goalEventsToFeedItems = (events: any[], profileMap: Record<string, any>): FeedItem[] =>
+  events.map(e => ({
+    id: e.id,
+    user_id: e.user_id,
+    date: e.created_at.slice(0, 10),
+    clean: true,
+    notes: null,
+    created_at: e.created_at,
+    profile: profileMap[e.user_id],
+    likeCount: 0,
+    iLiked: false,
+    commentCount: 0,
+    event_type: e.event_type as 'goal_set' | 'goal_met',
+    goal_days: e.goal_days,
+  }));
+
 export const getFeed = async (userId: string): Promise<FeedItem[]> => {
   const { data: follows } = await supabase
     .from('follows')
@@ -52,59 +71,93 @@ export const getFeed = async (userId: string): Promise<FeedItem[]> => {
   const followingIds = (follows ?? []).map(f => f.following_id);
   if (followingIds.length === 0) return [];
 
-  const [entriesRes, profilesRes] = await Promise.all([
+  const [entriesRes, profilesRes, goalEventsRes] = await Promise.all([
     supabase.from('entries').select('*').in('user_id', followingIds).order('created_at', { ascending: false }).limit(50),
     supabase.from('profiles').select('id, name, handle, avatar_url').in('id', followingIds),
+    supabase.from('goal_events').select('*').in('user_id', followingIds).order('created_at', { ascending: false }).limit(50),
   ]);
 
   const entries = entriesRes.data ?? [];
   const profileMap = Object.fromEntries((profilesRes.data ?? []).map(p => [p.id, p]));
   const entryIds = entries.map(e => e.id);
-  if (entryIds.length === 0) return [];
 
-  const [likesRes, commentsRes] = await Promise.all([
-    supabase.from('likes').select('entry_id, user_id').in('entry_id', entryIds),
-    supabase.from('comments').select('entry_id').in('entry_id', entryIds),
-  ]);
+  const [likesRes, commentsRes] = entryIds.length > 0
+    ? await Promise.all([
+        supabase.from('likes').select('entry_id, user_id').in('entry_id', entryIds),
+        supabase.from('comments').select('entry_id').in('entry_id', entryIds),
+      ])
+    : [{ data: [] }, { data: [] }];
 
   const likes = likesRes.data ?? [];
   const comments = commentsRes.data ?? [];
 
-  return entries.map(entry => ({
+  const entryItems: FeedItem[] = entries.map(entry => ({
     ...entry,
     profile: profileMap[entry.user_id],
     likeCount: likes.filter(l => l.entry_id === entry.id).length,
     iLiked: likes.some(l => l.entry_id === entry.id && l.user_id === userId),
     commentCount: comments.filter(c => c.entry_id === entry.id).length,
   }));
+
+  const goalItems = goalEventsToFeedItems(goalEventsRes.data ?? [], profileMap);
+
+  return [...entryItems, ...goalItems].sort((a, b) => b.created_at.localeCompare(a.created_at));
 };
 
 export const getMyActivity = async (userId: string): Promise<FeedItem[]> => {
-  const [entriesRes, profileRes] = await Promise.all([
+  const [entriesRes, profileRes, goalEventsRes] = await Promise.all([
     supabase.from('entries').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(50),
     supabase.from('profiles').select('id, name, handle, avatar_url').eq('id', userId).maybeSingle(),
+    supabase.from('goal_events').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(50),
   ]);
 
   const entries = entriesRes.data ?? [];
   const profile = profileRes.data;
-  if (entries.length === 0) return [];
+  const profileMap = profile ? { [profile.id]: profile } : {};
 
   const entryIds = entries.map(e => e.id);
-  const [likesRes, commentsRes] = await Promise.all([
-    supabase.from('likes').select('entry_id, user_id').in('entry_id', entryIds),
-    supabase.from('comments').select('entry_id').in('entry_id', entryIds),
-  ]);
+  const [likesRes, commentsRes] = entryIds.length > 0
+    ? await Promise.all([
+        supabase.from('likes').select('entry_id, user_id').in('entry_id', entryIds),
+        supabase.from('comments').select('entry_id').in('entry_id', entryIds),
+      ])
+    : [{ data: [] }, { data: [] }];
 
   const likes = likesRes.data ?? [];
   const comments = commentsRes.data ?? [];
 
-  return entries.map(entry => ({
+  const entryItems: FeedItem[] = entries.map(entry => ({
     ...entry,
     profile,
     likeCount: likes.filter(l => l.entry_id === entry.id).length,
     iLiked: likes.some(l => l.entry_id === entry.id && l.user_id === userId),
     commentCount: comments.filter(c => c.entry_id === entry.id).length,
   }));
+
+  const goalItems = goalEventsToFeedItems(goalEventsRes.data ?? [], profileMap);
+
+  return [...entryItems, ...goalItems].sort((a, b) => b.created_at.localeCompare(a.created_at));
+};
+
+// Post a goal event and notify followers
+export const postGoalEvent = async (
+  userId: string,
+  eventType: 'goal_set' | 'goal_met',
+  goalDays: number,
+  followerIds: string[],
+) => {
+  await supabase.from('goal_events').insert({ user_id: userId, event_type: eventType, goal_days: goalDays });
+  const targets = followerIds.filter(id => id !== userId);
+  if (targets.length > 0) {
+    await supabase.from('notifications').insert(
+      targets.map(uid => ({
+        user_id: uid,
+        type: eventType,
+        actor_id: userId,
+        data: { goal_days: goalDays },
+      }))
+    );
+  }
 };
 
 export const toggleLike = async (userId: string, entryId: string, iLiked: boolean, entryOwnerId?: string) => {
