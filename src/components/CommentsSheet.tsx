@@ -5,7 +5,7 @@ import { Keyboard } from '@capacitor/keyboard';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   getComments, postComment, deleteComment, toggleCommentLike,
-  searchFollowedByHandle, resolveHandles, Comment, SearchProfile,
+  searchFollowedByHandle, resolveHandles, Comment, SearchProfile, TargetKind,
 } from '@/lib/social';
 import { timeAgo } from '@/lib/timeAgo';
 import { haptic } from '@/lib/haptics';
@@ -13,6 +13,7 @@ import { useSwipeToDismiss } from '@/hooks/useSwipeToDismiss';
 
 interface Props {
   entryId: string;
+  kind?: TargetKind;
   entryOwnerId?: string;
   onClose: () => void;
   onProfileTap: (userId: string) => void;
@@ -38,7 +39,7 @@ interface ReplyingTo {
   handle: string;
 }
 
-const CommentsSheet = ({ entryId, entryOwnerId, onClose, onProfileTap }: Props) => {
+const CommentsSheet = ({ entryId, kind = 'entry', entryOwnerId, onClose, onProfileTap }: Props) => {
   const { user } = useAuth();
   const [comments, setComments] = useState<Comment[]>([]);
   const [body, setBody] = useState('');
@@ -64,11 +65,11 @@ const CommentsSheet = ({ entryId, entryOwnerId, onClose, onProfileTap }: Props) 
   }, []);
 
   const load = useCallback(async () => {
-    const data = await getComments(entryId, user?.id);
+    const data = await getComments(entryId, user?.id, kind);
     setComments(data);
     setLoading(false);
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
-  }, [entryId, user?.id]);
+  }, [entryId, kind, user?.id]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -122,6 +123,7 @@ const CommentsSheet = ({ entryId, entryOwnerId, onClose, onProfileTap }: Props) 
     const mentionedIds = Object.values(handleMap);
 
     await postComment(user.id, entryId, text, {
+      kind,
       entryOwnerId,
       parentCommentId: replyingTo?.commentId ?? null,
       parentCommentOwnerId: replyingTo?.commentOwnerId ?? null,

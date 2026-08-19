@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Heart, MessageCircle, MapPin, Music, Play, Pause } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePlayer } from '@/contexts/PlayerContext';
-import { toggleLike, FeedItem, GoalEventType } from '@/lib/social';
+import { toggleLike, FeedItem, GoalEventType, TargetKind } from '@/lib/social';
 import { timeAgo } from '@/lib/timeAgo';
 import { haptic } from '@/lib/haptics';
 import { useTap } from '@/hooks/useTap';
@@ -53,12 +53,15 @@ const FeedCard = ({ item, onProfileTap, onUpdate, isTabActive }: Props) => {
   const [y, m, d] = item.date.split('-').map(Number);
   const dateLabel = new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
+  // Goal events live in their own table, so likes/comments key off a different column.
+  const targetKind: TargetKind = item.event_type ? 'goal_event' : 'entry';
+
   const handleLike = async () => {
     if (!user) return;
     haptic.light();
     const newLiked = !item.iLiked;
     onUpdate(item.id, newLiked, item.likeCount + (newLiked ? 1 : -1));
-    await toggleLike(user.id, item.id, item.iLiked, item.user_id);
+    await toggleLike(user.id, item.id, item.iLiked, item.user_id, targetKind);
   };
 
   const cardTap = useTap((e: React.PointerEvent) => {
@@ -92,6 +95,43 @@ const FeedCard = ({ item, onProfileTap, onUpdate, isTabActive }: Props) => {
     if (pressTimerRef.current) { clearTimeout(pressTimerRef.current); pressTimerRef.current = null; }
   };
 
+  // Shared by the entry card and the goal-event card so both behave identically:
+  // tap to like, long-press for the likes sheet, tap the bubble for comments.
+  const actions = (
+    <div className="flex items-center gap-0.5 border-t border-border/50 mt-1">
+      <button
+        onPointerDown={handleLikePointerDown}
+        onPointerUp={handleLikePointerUp}
+        onPointerLeave={handleLikePointerLeave}
+        onPointerCancel={handleLikePointerLeave}
+        className={`flex items-center gap-0.5 transition-all active:scale-95 py-2 pr-2 min-w-[32px] ${
+          item.iLiked ? 'text-red' : 'text-muted-foreground'
+        }`}
+      >
+        <Heart size={14} fill={item.iLiked ? 'currentColor' : 'none'} />
+        <span className={`font-medium text-xs ${item.likeCount > 0 ? '' : 'invisible'}`}>{item.likeCount || 0}</span>
+      </button>
+      <button
+        {...commentsTap.props}
+        className="flex items-center gap-0.5 text-muted-foreground transition-all active:scale-95 py-2 pr-2 min-w-[32px]"
+      >
+        <MessageCircle size={14} />
+        <span className={`font-medium text-xs ${item.commentCount > 0 ? '' : 'invisible'}`}>{item.commentCount || 0}</span>
+      </button>
+    </div>
+  );
+
+  const sheets = (
+    <>
+      {showComments && (
+        <CommentsSheet entryId={item.id} kind={targetKind} entryOwnerId={item.user_id} onClose={() => setShowComments(false)} onProfileTap={onProfileTap} />
+      )}
+      {showLikes && (
+        <LikesSheet entryId={item.id} kind={targetKind} onClose={() => setShowLikes(false)} onProfileTap={onProfileTap} />
+      )}
+    </>
+  );
+
   // Goal event card
   if (item.event_type) {
     const days = <span className="text-clean font-semibold">{item.goal_days} day</span>;
@@ -103,22 +143,26 @@ const FeedCard = ({ item, onProfileTap, onUpdate, isTabActive }: Props) => {
       goal_met: <> just hit their {days} goal! 🎉</>,
     };
     return (
-      <div className="bg-card border border-border rounded-2xl p-4">
-        <div className="flex items-center gap-3">
-          <button onPointerDown={e => { e.preventDefault(); onProfileTap(item.user_id); }} className="flex-shrink-0">
-            <Avatar profile={item.profile} />
-          </button>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm text-foreground leading-snug">
-              <button onPointerDown={e => { e.preventDefault(); onProfileTap(item.user_id); }} className="font-semibold active:opacity-60">
-                {item.profile?.name}
-              </button>
-              {copy[item.event_type]}
-            </p>
-            <p className="text-[10px] text-muted-foreground/60 mt-0.5">{timeAgo(item.created_at)}</p>
+      <>
+        <div className="bg-card border border-border rounded-2xl p-4" {...cardTap.props}>
+          <div className="flex items-center gap-3">
+            <button onPointerDown={e => { e.preventDefault(); onProfileTap(item.user_id); }} className="flex-shrink-0">
+              <Avatar profile={item.profile} />
+            </button>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-foreground leading-snug">
+                <button onPointerDown={e => { e.preventDefault(); onProfileTap(item.user_id); }} className="font-semibold active:opacity-60">
+                  {item.profile?.name}
+                </button>
+                {copy[item.event_type]}
+              </p>
+              <p className="text-[10px] text-muted-foreground/60 mt-0.5">{timeAgo(item.created_at)}</p>
+            </div>
           </div>
+          {actions}
         </div>
-      </div>
+        {sheets}
+      </>
     );
   }
 
@@ -204,35 +248,10 @@ const FeedCard = ({ item, onProfileTap, onUpdate, isTabActive }: Props) => {
         )}
 
         {/* Actions */}
-        <div className="flex items-center gap-0.5 border-t border-border/50 mt-1">
-          <button
-            onPointerDown={handleLikePointerDown}
-            onPointerUp={handleLikePointerUp}
-            onPointerLeave={handleLikePointerLeave}
-            onPointerCancel={handleLikePointerLeave}
-            className={`flex items-center gap-0.5 transition-all active:scale-95 py-2 pr-2 min-w-[32px] ${
-              item.iLiked ? 'text-red' : 'text-muted-foreground'
-            }`}
-          >
-            <Heart size={14} fill={item.iLiked ? 'currentColor' : 'none'} />
-            <span className={`font-medium text-xs ${item.likeCount > 0 ? '' : 'invisible'}`}>{item.likeCount || 0}</span>
-          </button>
-          <button
-            {...commentsTap.props}
-            className="flex items-center gap-0.5 text-muted-foreground transition-all active:scale-95 py-2 pr-2 min-w-[32px]"
-          >
-            <MessageCircle size={14} />
-            <span className={`font-medium text-xs ${item.commentCount > 0 ? '' : 'invisible'}`}>{item.commentCount || 0}</span>
-          </button>
-        </div>
+        {actions}
       </div>
 
-      {showComments && (
-        <CommentsSheet entryId={item.id} entryOwnerId={item.user_id} onClose={() => setShowComments(false)} onProfileTap={onProfileTap} />
-      )}
-      {showLikes && (
-        <LikesSheet entryId={item.id} onClose={() => setShowLikes(false)} onProfileTap={onProfileTap} />
-      )}
+      {sheets}
     </>
   );
 };

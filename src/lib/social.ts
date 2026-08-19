@@ -5,6 +5,11 @@ import { createNotification } from '@/lib/notifications';
 // Must stay in sync with the check constraint on public.goal_events.
 export type GoalEventType = 'goal_set' | 'goal_25' | 'goal_50' | 'goal_75' | 'goal_met';
 
+// Likes and comments can hang off either an entry or a goal event. Defaults to
+// 'entry' everywhere so existing call sites read unchanged.
+export type TargetKind = 'entry' | 'goal_event';
+const targetCol = (kind: TargetKind) => (kind === 'entry' ? 'entry_id' : 'goal_event_id');
+
 export interface FeedItem {
   id: string;
   user_id: string;
@@ -49,7 +54,23 @@ export interface SearchProfile {
   avatar_url: string | null;
 }
 
-const goalEventsToFeedItems = (events: any[], profileMap: Record<string, any>): FeedItem[] =>
+// Likes/comments for a batch of goal events, in the same shape the entry path uses.
+const fetchGoalEngagement = async (goalIds: string[]) => {
+  if (goalIds.length === 0) return { likes: [] as any[], comments: [] as any[] };
+  const [likesRes, commentsRes] = await Promise.all([
+    supabase.from('likes').select('goal_event_id, user_id').in('goal_event_id', goalIds),
+    supabase.from('comments').select('goal_event_id').in('goal_event_id', goalIds),
+  ]);
+  return { likes: likesRes.data ?? [], comments: commentsRes.data ?? [] };
+};
+
+const goalEventsToFeedItems = (
+  events: any[],
+  profileMap: Record<string, any>,
+  likes: any[],
+  comments: any[],
+  userId: string,
+): FeedItem[] =>
   events.map(e => ({
     id: e.id,
     user_id: e.user_id,
@@ -58,9 +79,9 @@ const goalEventsToFeedItems = (events: any[], profileMap: Record<string, any>): 
     notes: null,
     created_at: e.created_at,
     profile: profileMap[e.user_id],
-    likeCount: 0,
-    iLiked: false,
-    commentCount: 0,
+    likeCount: likes.filter(l => l.goal_event_id === e.id).length,
+    iLiked: likes.some(l => l.goal_event_id === e.id && l.user_id === userId),
+    commentCount: comments.filter(c => c.goal_event_id === e.id).length,
     event_type: e.event_type as GoalEventType,
     goal_days: e.goal_days,
   }));
@@ -103,7 +124,9 @@ export const getFeed = async (userId: string): Promise<FeedItem[]> => {
     commentCount: comments.filter(c => c.entry_id === entry.id).length,
   }));
 
-  const goalItems = goalEventsToFeedItems(goalEventsRes.data ?? [], profileMap);
+  const goalEvents = goalEventsRes.data ?? [];
+  const goalEng = await fetchGoalEngagement(goalEvents.map((e: any) => e.id));
+  const goalItems = goalEventsToFeedItems(goalEvents, profileMap, goalEng.likes, goalEng.comments, userId);
 
   return [...entryItems, ...goalItems].sort((a, b) => b.created_at.localeCompare(a.created_at));
 };
@@ -138,7 +161,9 @@ export const getMyActivity = async (userId: string): Promise<FeedItem[]> => {
     commentCount: comments.filter(c => c.entry_id === entry.id).length,
   }));
 
-  const goalItems = goalEventsToFeedItems(goalEventsRes.data ?? [], profileMap);
+  const goalEvents = goalEventsRes.data ?? [];
+  const goalEng = await fetchGoalEngagement(goalEvents.map((e: any) => e.id));
+  const goalItems = goalEventsToFeedItems(goalEvents, profileMap, goalEng.likes, goalEng.comments, userId);
 
   return [...entryItems, ...goalItems].sort((a, b) => b.created_at.localeCompare(a.created_at));
 };
@@ -192,20 +217,31 @@ export const postGoalEvent = async (
   }
 };
 
-export const toggleLike = async (userId: string, entryId: string, iLiked: boolean, entryOwnerId?: string) => {
+export const toggleLike = async (
+  userId: string,
+  targetId: string,
+  iLiked: boolean,
+  ownerId?: string,
+  kind: TargetKind = 'entry',
+) => {
+  const col = targetCol(kind);
   if (iLiked) {
-    await supabase.from('likes').delete().eq('user_id', userId).eq('entry_id', entryId);
+    await supabase.from('likes').delete().eq('user_id', userId).eq(col, targetId);
   } else {
-    await supabase.from('likes').insert({ user_id: userId, entry_id: entryId });
-    if (entryOwnerId) createNotification(entryOwnerId, 'like', userId, { entry_id: entryId });
+    await supabase.from('likes').insert({ user_id: userId, [col]: targetId });
+    if (ownerId) createNotification(ownerId, 'like', userId, { [col]: targetId });
   }
 };
 
-export const getComments = async (entryId: string, currentUserId?: string): Promise<Comment[]> => {
+export const getComments = async (
+  targetId: string,
+  currentUserId?: string,
+  kind: TargetKind = 'entry',
+): Promise<Comment[]> => {
   const { data: rows } = await supabase
     .from('comments')
-    .select('id, user_id, entry_id, parent_comment_id, body, created_at')
-    .eq('entry_id', entryId)
+    .select('id, user_id, entry_id, goal_event_id, parent_comment_id, body, created_at')
+    .eq(targetCol(kind), targetId)
     .order('created_at', { ascending: true });
 
   if (!rows || rows.length === 0) return [];
@@ -250,47 +286,57 @@ export const getComments = async (entryId: string, currentUserId?: string): Prom
 
 export const postComment = async (
   userId: string,
-  entryId: string,
+  targetId: string,
   body: string,
   opts: {
     entryOwnerId?: string;
     parentCommentId?: string | null;
     parentCommentOwnerId?: string | null;
     mentionedUserIds?: string[];
+    kind?: TargetKind;
   } = {}
 ): Promise<string | null> => {
-  const { entryOwnerId, parentCommentId, parentCommentOwnerId, mentionedUserIds = [] } = opts;
+  const { entryOwnerId, parentCommentId, parentCommentOwnerId, mentionedUserIds = [], kind = 'entry' } = opts;
+  const col = targetCol(kind);
   const { data: inserted, error } = await supabase
     .from('comments')
-    .insert({ user_id: userId, entry_id: entryId, body, parent_comment_id: parentCommentId ?? null })
+    .insert({ user_id: userId, [col]: targetId, body, parent_comment_id: parentCommentId ?? null })
     .select('id')
     .single();
   if (error) return error.message;
 
   const commentId = inserted.id;
   const notified = new Set<string>();
+  // Notification payloads key the target by its own column so the app can tell
+  // an entry thread from a goal-event thread when deep-linking later.
+  const ref = { [col]: targetId };
 
   // Reply notification takes priority over mention for the parent comment owner
   if (parentCommentOwnerId && parentCommentOwnerId !== userId) {
-    createNotification(parentCommentOwnerId, 'comment_reply', userId, { entry_id: entryId, comment_id: commentId, body: body.slice(0, 80) });
+    createNotification(parentCommentOwnerId, 'comment_reply', userId, { ...ref, comment_id: commentId, body: body.slice(0, 80) });
     notified.add(parentCommentOwnerId);
   }
 
-  // Mention notifications (skip if already sent a reply notif to this user)
+  // Mention notifications (skip if already sent a reply notif to this user).
+  // mentions.entry_id is nullable and only references entries, so it stays null
+  // for goal-event threads — comment_id is enough to locate the mention.
   const mentionTargets = mentionedUserIds.filter(id => id !== userId && !notified.has(id));
   if (mentionTargets.length > 0) {
     await supabase.from('mentions').insert(mentionTargets.map(uid => ({
-      mentioned_user_id: uid, comment_id: commentId, entry_id: entryId, actor_id: userId,
+      mentioned_user_id: uid,
+      comment_id: commentId,
+      entry_id: kind === 'entry' ? targetId : null,
+      actor_id: userId,
     })));
     for (const uid of mentionTargets) {
-      createNotification(uid, 'mention_comment', userId, { entry_id: entryId, comment_id: commentId, body: body.slice(0, 80) });
+      createNotification(uid, 'mention_comment', userId, { ...ref, comment_id: commentId, body: body.slice(0, 80) });
       notified.add(uid);
     }
   }
 
-  // Entry owner notification (plain comment, only if not already notified above)
+  // Post owner notification (plain comment, only if not already notified above)
   if (entryOwnerId && !notified.has(entryOwnerId) && entryOwnerId !== userId) {
-    createNotification(entryOwnerId, 'comment', userId, { entry_id: entryId, comment_id: commentId, body: body.slice(0, 80) });
+    createNotification(entryOwnerId, 'comment', userId, { ...ref, comment_id: commentId, body: body.slice(0, 80) });
   }
 
   return null;
@@ -330,8 +376,8 @@ export const searchFollowedByHandle = async (currentUserId: string, prefix: stri
   return data ?? [];
 };
 
-export const getLikes = async (entryId: string): Promise<SearchProfile[]> => {
-  const { data: likes } = await supabase.from('likes').select('user_id').eq('entry_id', entryId);
+export const getLikes = async (targetId: string, kind: TargetKind = 'entry'): Promise<SearchProfile[]> => {
+  const { data: likes } = await supabase.from('likes').select('user_id').eq(targetCol(kind), targetId);
   if (!likes || likes.length === 0) return [];
   const userIds = likes.map(l => l.user_id);
   const { data: profiles } = await supabase.from('profiles').select('id, name, handle, avatar_url').in('id', userIds);

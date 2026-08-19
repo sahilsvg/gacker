@@ -1,16 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { X } from 'lucide-react';
-import { getLikes, SearchProfile } from '@/lib/social';
+import { getLikes, SearchProfile, TargetKind } from '@/lib/social';
 import { useSwipeToDismiss } from '@/hooks/useSwipeToDismiss';
 
 interface Props {
   entryId: string;
+  kind?: TargetKind;
   onClose: () => void;
   onProfileTap: (userId: string) => void;
 }
 
-const LikesSheet = ({ entryId, onClose, onProfileTap }: Props) => {
+const LikesSheet = ({ entryId, kind = 'entry', onClose, onProfileTap }: Props) => {
   const [likers, setLikers] = useState<SearchProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [isClosing, setIsClosing] = useState(false);
@@ -20,8 +21,8 @@ const LikesSheet = ({ entryId, onClose, onProfileTap }: Props) => {
   const { onTouchStart, onTouchEnd } = useSwipeToDismiss(handleClose, scrollRef);
 
   useEffect(() => {
-    getLikes(entryId).then(data => { setLikers(data); setLoading(false); });
-  }, [entryId]);
+    getLikes(entryId, kind).then(data => { setLikers(data); setLoading(false); });
+  }, [entryId, kind]);
 
   const sheet = (
     <div className="fixed inset-0 z-[200] flex flex-col justify-end">
