@@ -229,7 +229,7 @@ const CommentsSheet = ({ entryId, kind = 'entry', entryOwnerId, onClose, onProfi
   const sheetPadding = kbHeight > 0 ? '8px' : 'env(safe-area-inset-bottom)';
 
   const sheet = (
-    <div className="fixed inset-0 z-[200]">
+    <div className="fixed inset-0 z-[400]">
       <div className="absolute inset-0 bg-black/60" onPointerDown={handleClose} />
       <div
         className={`absolute bottom-0 left-0 right-0 bg-card rounded-t-3xl flex flex-col ${isClosing ? 'animate-slide-down' : 'animate-slide-up'}`}

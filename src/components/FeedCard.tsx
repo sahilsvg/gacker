@@ -14,6 +14,8 @@ interface Props {
   onProfileTap: (userId: string) => void;
   onUpdate: (id: string, iLiked: boolean, likeCount: number) => void;
   isTabActive?: boolean;
+  /** Open straight into the comment thread (used when arriving from a notification). */
+  initialShowComments?: boolean;
 }
 
 const Avatar = ({ profile }: { profile: FeedItem['profile'] }) => (
@@ -24,9 +26,9 @@ const Avatar = ({ profile }: { profile: FeedItem['profile'] }) => (
       </div>
 );
 
-const FeedCard = ({ item, onProfileTap, onUpdate, isTabActive }: Props) => {
+const FeedCard = ({ item, onProfileTap, onUpdate, isTabActive, initialShowComments = false }: Props) => {
   const { user } = useAuth();
-  const [showComments, setShowComments] = useState(false);
+  const [showComments, setShowComments] = useState(initialShowComments);
   const [showLikes, setShowLikes] = useState(false);
 
   useEffect(() => {

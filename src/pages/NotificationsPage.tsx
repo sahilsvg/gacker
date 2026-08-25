@@ -1,13 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Bell } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getNotifications, markAllRead, AppNotification, NotificationType } from '@/lib/notifications';
+import { getNotifications, markAllRead, markNotificationRead, notifTarget, AppNotification, NotificationType } from '@/lib/notifications';
 import { timeAgo } from '@/lib/timeAgo';
 import { useSwipeToDismiss } from '@/hooks/useSwipeToDismiss';
+import { useTapList } from '@/hooks/useTap';
+import PostDetailSheet from '@/components/PostDetailSheet';
 
 interface Props {
   onClose: () => void;
+  /** Opening a profile from a notification hands off to the parent view. */
+  onProfileTap?: (userId: string) => void;
 }
+
+// Likes and comments can land on a daily entry or on a goal post; the payload
+// says which. Keeps "entry" as the word for daily logs rather than flattening
+// everything to "post".
+const subject = (n: AppNotification) => (n.data?.goal_event_id ? 'goal post' : 'entry');
 
 const notifText = (n: AppNotification): string => {
   const handle = n.actor_profile?.handle ? `@${n.actor_profile.handle}` : 'Someone';
@@ -17,11 +26,11 @@ const notifText = (n: AppNotification): string => {
     case 'follow_accepted':
       return `${handle} accepted your follow request`;
     case 'like':
-      return `${handle} liked your entry`;
+      return `${handle} liked your ${subject(n)}`;
     case 'comment':
       return n.data?.body
         ? `${handle} commented: "${n.data.body}"`
-        : `${handle} commented on your entry`;
+        : `${handle} commented on your ${subject(n)}`;
     case 'comment_like':
       return `${handle} liked your comment`;
     case 'comment_reply':
@@ -78,11 +87,32 @@ const Avatar = ({ n }: { n: AppNotification }) => {
       </div>;
 };
 
-const NotificationsPage = ({ onClose }: Props) => {
+const NotificationsPage = ({ onClose, onProfileTap }: Props) => {
   const { user } = useAuth();
   const [notifs, setNotifs] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [openPost, setOpenPost] = useState<{ id: string; kind: 'entry' | 'goal_event'; openComments: boolean } | null>(null);
   const { onTouchStart, onTouchEnd } = useSwipeToDismiss(onClose);
+  const tapList = useTapList();
+
+  // Comment-ish notifications drop you straight into the thread.
+  const commentTypes = new Set(['comment', 'comment_like', 'comment_reply', 'mention_comment']);
+
+  const handleNotifTap = (n: AppNotification) => {
+    // Clear this row's dot regardless of whether it opens anything.
+    if (!n.read) {
+      setNotifs(prev => prev.map(x => (x.id === n.id ? { ...x, read: true } : x)));
+      markNotificationRead(n.id);
+    }
+    const target = notifTarget(n);
+    if (!target) return;
+    if (target.view === 'profile') {
+      onProfileTap?.(target.id);
+      onClose();
+      return;
+    }
+    setOpenPost({ id: target.id, kind: target.kind, openComments: commentTypes.has(n.type) });
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -125,7 +155,10 @@ const NotificationsPage = ({ onClose }: Props) => {
           {notifs.map(n => (
             <div
               key={n.id}
-              className={`flex items-start gap-3 px-5 py-4 transition-colors ${!n.read ? 'bg-clean/5' : ''}`}
+              {...tapList(n.id, () => handleNotifTap(n))}
+              className={`flex items-start gap-3 px-5 py-4 transition-colors select-none ${
+                !n.read ? 'bg-clean/5' : ''
+              } ${notifTarget(n) ? 'active:bg-muted/40 cursor-pointer' : ''}`}
             >
               <Avatar n={n} />
               <div className="flex-1 min-w-0 pt-0.5">
@@ -139,6 +172,16 @@ const NotificationsPage = ({ onClose }: Props) => {
           ))}
         </div>
       </div>
+
+      {openPost && (
+        <PostDetailSheet
+          id={openPost.id}
+          kind={openPost.kind}
+          openComments={openPost.openComments}
+          onClose={() => setOpenPost(null)}
+          onProfileTap={userId => { setOpenPost(null); onProfileTap?.(userId); onClose(); }}
+        />
+      )}
     </div>
   );
 };

@@ -100,7 +100,12 @@ const FeedTab = ({ isActive, resetKey }: Props) => {
 
   return (
     <>
-    {showNotifications && <NotificationsPage onClose={() => setShowNotifications(false)} />}
+    {showNotifications && (
+      <NotificationsPage
+        onClose={() => setShowNotifications(false)}
+        onProfileTap={userId => { setSelectedUserId(userId); setView('profile'); }}
+      />
+    )}
     <div className="flex flex-col h-full tab-bar-padding">
       <PullToRefresh onRefresh={() => load(true)}>
         {/* Header */}

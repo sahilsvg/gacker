@@ -91,3 +91,52 @@ export const markAllRead = async (userId: string) => {
     .eq('user_id', userId)
     .eq('read', false);
 };
+
+// Clears the dot on a single row, so tapping one notification does not silently
+// mark the whole list read.
+export const markNotificationRead = async (notificationId: string) => {
+  await supabase
+    .from('notifications')
+    .update({ read: true })
+    .eq('id', notificationId);
+};
+
+// Where a notification should navigate when tapped. `post` opens the entry or
+// goal post behind it; `profile` opens the actor; null means nothing to open.
+export const notifTarget = (
+  n: AppNotification,
+): { view: 'post'; kind: 'entry' | 'goal_event'; id: string; commentId?: string }
+  | { view: 'profile'; id: string }
+  | null => {
+  const entryId = n.data?.entry_id;
+  const goalEventId = n.data?.goal_event_id;
+  const commentId = n.data?.comment_id;
+
+  switch (n.type as NotificationType) {
+    case 'like':
+    case 'comment':
+    case 'comment_like':
+    case 'comment_reply':
+    case 'mention_comment':
+    case 'mention_entry':
+      if (goalEventId) return { view: 'post', kind: 'goal_event', id: goalEventId, commentId };
+      if (entryId) return { view: 'post', kind: 'entry', id: entryId, commentId };
+      return null;
+
+    case 'goal_set':
+    case 'goal_25':
+    case 'goal_50':
+    case 'goal_75':
+    case 'goal_met':
+      // Rows written before goal_event_id was captured have nothing to open.
+      return goalEventId ? { view: 'post', kind: 'goal_event', id: goalEventId } : null;
+
+    case 'follow_request':
+    case 'follow_accepted':
+    case 'streak_milestone':
+      return n.actor_id ? { view: 'profile', id: n.actor_id } : null;
+
+    default:
+      return null;
+  }
+};

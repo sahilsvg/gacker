@@ -54,15 +54,19 @@ export interface SearchProfile {
   avatar_url: string | null;
 }
 
-// Likes/comments for a batch of goal events, in the same shape the entry path uses.
-const fetchGoalEngagement = async (goalIds: string[]) => {
-  if (goalIds.length === 0) return { likes: [] as any[], comments: [] as any[] };
+// Likes/comments for a batch of ids of either kind. Shared by getFeed,
+// getMyActivity and getFeedItem so their counts cannot drift apart.
+const fetchEngagement = async (ids: string[], kind: TargetKind) => {
+  if (ids.length === 0) return { likes: [] as any[], comments: [] as any[] };
+  const col = targetCol(kind);
   const [likesRes, commentsRes] = await Promise.all([
-    supabase.from('likes').select('goal_event_id, user_id').in('goal_event_id', goalIds),
-    supabase.from('comments').select('goal_event_id').in('goal_event_id', goalIds),
+    supabase.from('likes').select(`${col}, user_id`).in(col, ids),
+    supabase.from('comments').select(col).in(col, ids),
   ]);
   return { likes: likesRes.data ?? [], comments: commentsRes.data ?? [] };
 };
+
+const fetchGoalEngagement = (goalIds: string[]) => fetchEngagement(goalIds, 'goal_event');
 
 const goalEventsToFeedItems = (
   events: any[],
@@ -168,6 +172,36 @@ export const getMyActivity = async (userId: string): Promise<FeedItem[]> => {
   return [...entryItems, ...goalItems].sort((a, b) => b.created_at.localeCompare(a.created_at));
 };
 
+// One post of either kind, shaped exactly like a feed row so it can be handed
+// straight to FeedCard. Used to open the post behind a notification.
+export const getFeedItem = async (
+  id: string,
+  kind: TargetKind,
+  currentUserId: string,
+): Promise<FeedItem | null> => {
+  const table = kind === 'entry' ? 'entries' : 'goal_events';
+  const { data: row } = await supabase.from(table).select('*').eq('id', id).maybeSingle();
+  if (!row) return null;
+
+  const [{ data: profile }, eng] = await Promise.all([
+    supabase.from('profiles').select('id, name, handle, avatar_url').eq('id', (row as any).user_id).maybeSingle(),
+    fetchEngagement([id], kind),
+  ]);
+
+  if (kind === 'goal_event') {
+    const profileMap = profile ? { [(profile as any).id]: profile } : {};
+    return goalEventsToFeedItems([row], profileMap, eng.likes, eng.comments, currentUserId)[0] ?? null;
+  }
+
+  return {
+    ...(row as any),
+    profile,
+    likeCount: eng.likes.length,
+    iLiked: eng.likes.some((l: any) => l.user_id === currentUserId),
+    commentCount: eng.comments.length,
+  } as FeedItem;
+};
+
 // Streak-day thresholds at which each milestone fires, ascending.
 // Percentages round up, so a 10-day goal fires at 3 / 5 / 8 / 10.
 // Short goals can collide (a 2-day goal puts 25% and 50% both on day 1);
@@ -198,12 +232,17 @@ export const postGoalEvent = async (
   goalDays: number,
   followerIds: string[],
 ) => {
-  const { error } = await supabase
+  const { data: event, error } = await supabase
     .from('goal_events')
-    .insert({ user_id: userId, event_type: eventType, goal_days: goalDays });
+    .insert({ user_id: userId, event_type: eventType, goal_days: goalDays })
+    .select('id')
+    .single();
   // Surface failures instead of swallowing them — a missing table or a failed
   // check constraint here is otherwise completely silent.
-  if (error) console.warn('[goal_events] insert failed:', error.message);
+  if (error) {
+    console.warn('[goal_events] insert failed:', error.message);
+    return;
+  }
   const targets = followerIds.filter(id => id !== userId);
   if (targets.length > 0) {
     await supabase.from('notifications').insert(
@@ -211,7 +250,10 @@ export const postGoalEvent = async (
         user_id: uid,
         type: eventType,
         actor_id: userId,
-        data: { goal_days: goalDays },
+        // goal_event_id lets the notification open its own feed post. It cannot
+        // be backfilled onto rows written before this existed, so it must be
+        // captured at insert time.
+        data: { goal_days: goalDays, goal_event_id: event.id },
       }))
     );
   }

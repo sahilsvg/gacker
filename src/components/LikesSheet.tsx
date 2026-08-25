@@ -25,7 +25,7 @@ const LikesSheet = ({ entryId, kind = 'entry', onClose, onProfileTap }: Props) =
   }, [entryId, kind]);
 
   const sheet = (
-    <div className="fixed inset-0 z-[200] flex flex-col justify-end">
+    <div className="fixed inset-0 z-[400] flex flex-col justify-end">
       <div className="absolute inset-0 bg-black/60" onClick={handleClose} />
       <div
         className={`relative bg-card rounded-t-3xl flex flex-col ${isClosing ? 'animate-slide-down' : 'animate-slide-up'}`}
