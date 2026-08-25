@@ -9,6 +9,7 @@ import { Keyboard } from '@capacitor/keyboard';
 import { Capacitor } from '@capacitor/core';
 import SplashScreen from '@/components/SplashScreen';
 import BottomNav, { Tab } from '@/components/BottomNav';
+import { useKeyboardDismiss } from '@/hooks/useKeyboardDismiss';
 import PhoneEntry from '@/pages/auth/PhoneEntry';
 import OTPVerify from '@/pages/auth/OTPVerify';
 import ProfileSetup from '@/pages/auth/ProfileSetup';
@@ -23,6 +24,8 @@ const queryClient = new QueryClient();
 type AuthStep = 'phone' | 'otp' | 'setup' | 'welcome';
 
 const AppShell = () => {
+  // App-wide: tapping outside a field or scrolling puts the keyboard away.
+  useKeyboardDismiss();
   const { user, profile, loading } = useAuth();
   const [splashDone, setSplashDone] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('log');

@@ -355,6 +355,7 @@ const LogTab = ({ resetKey: _, isActive }: { resetKey: number; isActive?: boolea
                   {mentionSuggestions.map(p => (
                     <button
                       key={p.id}
+                      data-keep-keyboard
                       onPointerDown={e => { e.preventDefault(); insertNotesMention(p); }}
                       className="flex items-center gap-2.5 w-full px-3 py-2.5 active:bg-muted transition-colors border-b border-border/30 last:border-0"
                     >

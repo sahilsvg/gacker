@@ -1,3 +1,4 @@
+import { dismissOnEnter, dismissKeyboard } from '@/hooks/useKeyboardDismiss';
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import { X, Send, Trash2, Heart, CornerDownRight } from 'lucide-react';
@@ -265,6 +266,7 @@ const CommentsSheet = ({ entryId, kind = 'entry', entryOwnerId, onClose, onProfi
             {mentionSuggestions.map(p => (
               <button
                 key={p.id}
+                data-keep-keyboard
                 onPointerDown={e => { e.preventDefault(); insertMention(p); }}
                 className="flex items-center gap-2.5 w-full px-3 py-2.5 active:bg-muted transition-colors border-b border-border/30 last:border-0"
               >
@@ -298,12 +300,14 @@ const CommentsSheet = ({ entryId, kind = 'entry', entryOwnerId, onClose, onProfi
             ref={inputRef}
             value={body}
             onChange={e => handleBodyChange(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handlePost(); } }}
+            enterKeyHint="send"
+            onKeyDown={dismissOnEnter(handlePost)}
             placeholder={replyingTo ? `Reply to @${replyingTo.handle}…` : 'Add a comment…'}
             maxLength={500}
             className="flex-1 bg-background border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
           />
           <button
+            data-keep-keyboard
             onPointerDown={e => { e.preventDefault(); handlePost(); }}
             disabled={!body.trim() || posting}
             className="w-10 h-10 rounded-xl bg-clean flex items-center justify-center disabled:opacity-40 transition-all active:scale-95 flex-shrink-0"

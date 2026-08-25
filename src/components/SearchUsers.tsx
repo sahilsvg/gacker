@@ -1,3 +1,4 @@
+import { dismissOnEnter } from '@/hooks/useKeyboardDismiss';
 import React, { useState, useEffect } from 'react';
 import { Search, UserPlus, UserCheck, Clock } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -80,6 +81,8 @@ const SearchUsers = ({ onClose, onProfileTap }: Props) => {
             autoFocus
             value={query}
             onChange={e => setQuery(e.target.value)}
+            enterKeyHint="search"
+            onKeyDown={dismissOnEnter()}
             placeholder="Search by handle…"
             className="flex-1 bg-transparent text-sm text-foreground focus:outline-none placeholder:text-muted-foreground"
           />

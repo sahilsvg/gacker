@@ -1,3 +1,4 @@
+import { dismissOnEnter } from '@/hooks/useKeyboardDismiss';
 import React, { useEffect, useRef, useState } from 'react';
 import { Play, Pause, X, Search, Loader2, Music, Square } from 'lucide-react';
 import { CapacitorHttp } from '@capacitor/core';
@@ -133,6 +134,8 @@ const SongPicker = ({ value, onChange }: Props) => {
         <input
           value={query}
           onChange={e => setQuery(e.target.value)}
+          enterKeyHint="search"
+          onKeyDown={dismissOnEnter()}
           placeholder="Search for a song…"
           className="flex-1 bg-transparent text-sm text-foreground focus:outline-none placeholder:text-muted-foreground"
         />

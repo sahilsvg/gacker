@@ -1,3 +1,4 @@
+import { dismissOnEnter } from '@/hooks/useKeyboardDismiss';
 import React, { useState, useRef } from 'react';
 import { Camera } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -130,6 +131,8 @@ const ProfileSetup = ({ onComplete }: Props) => {
           <input
             value={name}
             onChange={e => handleNameChange(e.target.value)}
+            enterKeyHint="next"
+            onKeyDown={dismissOnEnter()}
             placeholder="Your name"
             maxLength={20}
             className="w-full bg-card border border-border rounded-2xl px-4 py-3.5 text-foreground font-medium focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
@@ -144,6 +147,8 @@ const ProfileSetup = ({ onComplete }: Props) => {
             <input
               value={handle}
               onChange={e => handleHandleChange(e.target.value)}
+              enterKeyHint="done"
+              onKeyDown={dismissOnEnter()}
               placeholder="yourhandle"
               maxLength={13}
               className="flex-1 bg-transparent text-foreground font-medium focus:outline-none placeholder:text-muted-foreground"

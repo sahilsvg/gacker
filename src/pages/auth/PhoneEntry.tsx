@@ -1,3 +1,4 @@
+import { dismissOnEnter, dismissKeyboard } from '@/hooks/useKeyboardDismiss';
 import React, { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -58,7 +59,8 @@ const PhoneEntry = ({ onCodeSent }: Props) => {
               placeholder="(555) 000-0000"
               maxLength={14}
               className="flex-1 bg-transparent text-foreground text-lg font-medium focus:outline-none placeholder:text-muted-foreground"
-              onKeyDown={e => e.key === 'Enter' && handleSend()}
+              enterKeyHint="go"
+              onKeyDown={dismissOnEnter(handleSend)}
             />
           </div>
         </div>

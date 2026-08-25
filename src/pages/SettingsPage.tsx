@@ -1,3 +1,4 @@
+import { dismissOnEnter } from '@/hooks/useKeyboardDismiss';
 import React, { useState, useRef } from 'react';
 import { X, Camera, Loader2, ChevronRight, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -200,6 +201,8 @@ const SettingsPage = ({ onClose }: Props) => {
                 autoFocus
                 value={name}
                 onChange={e => setName(sanitizeName(e.target.value))}
+                enterKeyHint="done"
+                onKeyDown={dismissOnEnter(saveName)}
                 placeholder="Your name"
                 className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               />
@@ -227,6 +230,8 @@ const SettingsPage = ({ onClose }: Props) => {
                   autoFocus
                   value={handle}
                   onChange={e => onHandleChange(e.target.value)}
+                  enterKeyHint="done"
+                  onKeyDown={dismissOnEnter(saveHandle)}
                   placeholder="yourhandle"
                   className="w-full bg-background border border-border rounded-xl pl-7 pr-9 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 />
@@ -260,6 +265,8 @@ const SettingsPage = ({ onClose }: Props) => {
                   autoFocus
                   value={bio}
                   onChange={e => setBio(e.target.value.slice(0, 80))}
+                  enterKeyHint="done"
+                  onKeyDown={dismissOnEnter(saveBio)}
                   placeholder="A short bio…"
                   className="w-full bg-background border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring pr-12"
                 />

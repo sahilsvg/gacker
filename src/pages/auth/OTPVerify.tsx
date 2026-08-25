@@ -1,3 +1,4 @@
+import { dismissOnEnter, dismissKeyboard } from '@/hooks/useKeyboardDismiss';
 import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft } from 'lucide-react';
@@ -73,6 +74,8 @@ const OTPVerify = ({ phone, onVerified, onBack }: Props) => {
             maxLength={6}
             value={code}
             onChange={e => handleChange(e.target.value)}
+            enterKeyHint="go"
+            onKeyDown={dismissOnEnter()}
             disabled={loading}
             className="absolute inset-0 opacity-0 w-full h-full cursor-default"
           />
