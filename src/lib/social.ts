@@ -54,8 +54,8 @@ export interface SearchProfile {
   avatar_url: string | null;
 }
 
-// Likes/comments for a batch of ids of either kind. Shared by getFeed,
-// getMyActivity and getFeedItem so their counts cannot drift apart.
+// Likes/comments for a batch of ids of either kind, shared by getFeed and
+// getMyActivity so their counts cannot drift apart.
 const fetchEngagement = async (ids: string[], kind: TargetKind) => {
   if (ids.length === 0) return { likes: [] as any[], comments: [] as any[] };
   const col = targetCol(kind);
@@ -170,36 +170,6 @@ export const getMyActivity = async (userId: string): Promise<FeedItem[]> => {
   const goalItems = goalEventsToFeedItems(goalEvents, profileMap, goalEng.likes, goalEng.comments, userId);
 
   return [...entryItems, ...goalItems].sort((a, b) => b.created_at.localeCompare(a.created_at));
-};
-
-// One post of either kind, shaped exactly like a feed row so it can be handed
-// straight to FeedCard. Used to open the post behind a notification.
-export const getFeedItem = async (
-  id: string,
-  kind: TargetKind,
-  currentUserId: string,
-): Promise<FeedItem | null> => {
-  const table = kind === 'entry' ? 'entries' : 'goal_events';
-  const { data: row } = await supabase.from(table).select('*').eq('id', id).maybeSingle();
-  if (!row) return null;
-
-  const [{ data: profile }, eng] = await Promise.all([
-    supabase.from('profiles').select('id, name, handle, avatar_url').eq('id', (row as any).user_id).maybeSingle(),
-    fetchEngagement([id], kind),
-  ]);
-
-  if (kind === 'goal_event') {
-    const profileMap = profile ? { [(profile as any).id]: profile } : {};
-    return goalEventsToFeedItems([row], profileMap, eng.likes, eng.comments, currentUserId)[0] ?? null;
-  }
-
-  return {
-    ...(row as any),
-    profile,
-    likeCount: eng.likes.length,
-    iLiked: eng.likes.some((l: any) => l.user_id === currentUserId),
-    commentCount: eng.comments.length,
-  } as FeedItem;
 };
 
 // Streak-day thresholds at which each milestone fires, ascending.

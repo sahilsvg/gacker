@@ -5,12 +5,13 @@ import { getNotifications, markAllRead, markNotificationRead, notifTarget, AppNo
 import { timeAgo } from '@/lib/timeAgo';
 import { useSwipeToDismiss } from '@/hooks/useSwipeToDismiss';
 import { useTapList } from '@/hooks/useTap';
-import PostDetailSheet from '@/components/PostDetailSheet';
 
 interface Props {
   onClose: () => void;
   /** Opening a profile from a notification hands off to the parent view. */
   onProfileTap?: (userId: string) => void;
+  /** Hands the post off to the feed, which scrolls to it in place. */
+  onOpenPost?: (id: string, kind: 'entry' | 'goal_event', openComments: boolean) => void;
 }
 
 // Likes and comments can land on a daily entry or on a goal post; the payload
@@ -87,11 +88,10 @@ const Avatar = ({ n }: { n: AppNotification }) => {
       </div>;
 };
 
-const NotificationsPage = ({ onClose, onProfileTap }: Props) => {
+const NotificationsPage = ({ onClose, onProfileTap, onOpenPost }: Props) => {
   const { user } = useAuth();
   const [notifs, setNotifs] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
-  const [openPost, setOpenPost] = useState<{ id: string; kind: 'entry' | 'goal_event'; openComments: boolean } | null>(null);
   const { onTouchStart, onTouchEnd } = useSwipeToDismiss(onClose);
   const tapList = useTapList();
 
@@ -111,7 +111,8 @@ const NotificationsPage = ({ onClose, onProfileTap }: Props) => {
       onClose();
       return;
     }
-    setOpenPost({ id: target.id, kind: target.kind, openComments: commentTypes.has(n.type) });
+    onOpenPost?.(target.id, target.kind, commentTypes.has(n.type));
+    onClose();
   };
 
   useEffect(() => {
@@ -172,16 +173,6 @@ const NotificationsPage = ({ onClose, onProfileTap }: Props) => {
           ))}
         </div>
       </div>
-
-      {openPost && (
-        <PostDetailSheet
-          id={openPost.id}
-          kind={openPost.kind}
-          openComments={openPost.openComments}
-          onClose={() => setOpenPost(null)}
-          onProfileTap={userId => { setOpenPost(null); onProfileTap?.(userId); onClose(); }}
-        />
-      )}
     </div>
   );
 };

@@ -32,6 +32,40 @@ const FeedTab = ({ isActive, resetKey }: Props) => {
   const bellTap = useTap(() => { setShowNotifications(true); setUnreadCount(0); });
   const findFriendsTap = useTap(() => setView('search'));
 
+  // Post a notification asked us to jump to: switch subtab, scroll it into
+  // view, and open its thread — in the feed itself rather than a stacked sheet.
+  const [focusPost, setFocusPost] = useState<{ id: string; openComments: boolean } | null>(null);
+  const [missingPost, setMissingPost] = useState(false);
+
+  const handleOpenPost = (id: string, _kind: 'entry' | 'goal_event', openComments: boolean) => {
+    // Whichever feed holds it tells us which subtab to land on — no need to
+    // know who owns the post.
+    const inMine = myFeed.some(i => i.id === id);
+    const inFriends = friendsFeed.some(i => i.id === id);
+    if (!inMine && !inFriends) {
+      // Older than the 50 rows each feed loads, or from someone since unfollowed.
+      setMissingPost(true);
+      setTimeout(() => setMissingPost(false), 2600);
+      return;
+    }
+    setView('feed');
+    setSubTab(inMine ? 'mine' : 'friends');
+    setFocusPost({ id, openComments });
+  };
+
+  useEffect(() => {
+    if (!focusPost) return;
+    // Wait a frame for the subtab's cards to render before measuring.
+    const t = setTimeout(() => {
+      document.getElementById(`post-${focusPost.id}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 60);
+    // Drop the focus once it has been honoured so the highlight fades and a
+    // later re-render does not re-open a thread the user closed.
+    const clear = setTimeout(() => setFocusPost(null), 2200);
+    return () => { clearTimeout(t); clearTimeout(clear); };
+  }, [focusPost]);
+
   const load = useCallback(async (silent = false) => {
     if (!user || loadingRef.current) return;
     loadingRef.current = true;
@@ -104,7 +138,13 @@ const FeedTab = ({ isActive, resetKey }: Props) => {
       <NotificationsPage
         onClose={() => setShowNotifications(false)}
         onProfileTap={userId => { setSelectedUserId(userId); setView('profile'); }}
+        onOpenPost={handleOpenPost}
       />
+    )}
+    {missingPost && (
+      <div className="fixed left-1/2 -translate-x-1/2 bottom-28 z-[350] px-4 py-2.5 rounded-xl bg-card border border-border shadow-lg">
+        <p className="text-xs text-foreground">That post isn’t in your feed anymore.</p>
+      </div>
     )}
     <div className="flex flex-col h-full tab-bar-padding">
       <PullToRefresh onRefresh={() => load(true)}>
@@ -187,13 +227,21 @@ const FeedTab = ({ isActive, resetKey }: Props) => {
           )}
 
           {!loading && activeFeed.map(item => (
-            <FeedCard
+            <div
               key={item.id}
-              item={item}
-              onProfileTap={handleProfileTap}
-              onUpdate={handleUpdate}
-              isTabActive={isActive}
-            />
+              id={`post-${item.id}`}
+              className={`rounded-2xl transition-shadow duration-500 ${
+                focusPost?.id === item.id ? 'ring-2 ring-clean/60' : ''
+              }`}
+            >
+              <FeedCard
+                item={item}
+                onProfileTap={handleProfileTap}
+                onUpdate={handleUpdate}
+                isTabActive={isActive}
+                openComments={focusPost?.id === item.id && focusPost.openComments}
+              />
+            </div>
           ))}
         </div>
       </PullToRefresh>

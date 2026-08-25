@@ -14,8 +14,8 @@ interface Props {
   onProfileTap: (userId: string) => void;
   onUpdate: (id: string, iLiked: boolean, likeCount: number) => void;
   isTabActive?: boolean;
-  /** Open straight into the comment thread (used when arriving from a notification). */
-  initialShowComments?: boolean;
+  /** Flips to true to open this card's comment thread (arriving from a notification). */
+  openComments?: boolean;
 }
 
 const Avatar = ({ profile }: { profile: FeedItem['profile'] }) => (
@@ -26,14 +26,20 @@ const Avatar = ({ profile }: { profile: FeedItem['profile'] }) => (
       </div>
 );
 
-const FeedCard = ({ item, onProfileTap, onUpdate, isTabActive, initialShowComments = false }: Props) => {
+const FeedCard = ({ item, onProfileTap, onUpdate, isTabActive, openComments = false }: Props) => {
   const { user } = useAuth();
-  const [showComments, setShowComments] = useState(initialShowComments);
+  const [showComments, setShowComments] = useState(openComments);
   const [showLikes, setShowLikes] = useState(false);
 
   useEffect(() => {
     if (!isTabActive) { setShowComments(false); setShowLikes(false); }
   }, [isTabActive]);
+
+  // Opens on request without forcing it shut again, so the user can still
+  // dismiss the thread and have it stay dismissed.
+  useEffect(() => {
+    if (openComments) setShowComments(true);
+  }, [openComments]);
   const { play, currentSong, isPlaying } = usePlayer();
   const songPlaying = currentSong?.url === item.song_preview_url && isPlaying;
 
