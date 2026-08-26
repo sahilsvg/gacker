@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, UserPlus, UserCheck, Clock } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { searchUsers, getFollowing, getPendingOutgoing, followUser, unfollowUser, SearchProfile } from '@/lib/social';
+import { useTapList, stopParentTap } from '@/hooks/useTap';
 
 interface Props {
   onClose: () => void;
@@ -24,6 +25,7 @@ const SearchUsers = ({ onClose, onProfileTap }: Props) => {
   const [following, setFollowing] = useState<Set<string>>(new Set());
   const [pending, setPending] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
+  const tapList = useTapList();
 
   useEffect(() => {
     if (!user) return;
@@ -102,17 +104,23 @@ const SearchUsers = ({ onClose, onProfileTap }: Props) => {
         {results.map(profile => {
           const state = getButtonState(profile.id);
           return (
-            <div key={profile.id} className="flex items-center gap-3 bg-card border border-border rounded-2xl p-3">
-              <button onClick={() => { onProfileTap(profile.id); onClose(); }}>
-                <Avatar profile={profile} />
-              </button>
-              <button onClick={() => { onProfileTap(profile.id); onClose(); }} className="flex-1 min-w-0 text-left">
-                <p className="font-semibold text-foreground text-sm">{profile.name}</p>
-                <p className="text-xs text-muted-foreground">@{profile.handle}</p>
-              </button>
+            // The whole row opens the profile — avatar, name, and the padding
+            // between them. Follow stops propagation so it wins over the row.
+            <div
+              key={profile.id}
+              // No onClose here: the parent's onProfileTap already leaves the
+              // search view, and closing on top of it would land back on the feed.
+              {...tapList(profile.id, () => onProfileTap(profile.id))}
+              className="flex items-center gap-3 bg-card border border-border rounded-2xl p-3 select-none cursor-pointer active:bg-muted/30 transition-colors"
+            >
+              <Avatar profile={profile} />
+              <div className="flex-1 min-w-0 text-left">
+                <p className="font-semibold text-foreground text-sm truncate">{profile.name}</p>
+                <p className="text-xs text-muted-foreground truncate">@{profile.handle}</p>
+              </div>
               <button
-                onPointerDown={e => { e.preventDefault(); handleFollow(profile.id); }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all active:scale-95 ${
+                {...stopParentTap(tapList(`follow-${profile.id}`, () => handleFollow(profile.id)))}
+                className={`flex items-center justify-center gap-1.5 px-3.5 min-h-[44px] min-w-[44px] rounded-xl text-xs font-semibold flex-shrink-0 transition-all active:scale-95 ${
                   state === 'following'
                     ? 'bg-muted text-muted-foreground'
                     : state === 'pending'
