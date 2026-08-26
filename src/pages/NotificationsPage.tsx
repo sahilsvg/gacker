@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getNotifications, markAllRead, markNotificationRead, notifTarget, AppNotification, NotificationType } from '@/lib/notifications';
 import { timeAgo } from '@/lib/timeAgo';
 import { useSwipeToDismiss } from '@/hooks/useSwipeToDismiss';
-import { useTapList } from '@/hooks/useTap';
+import { useTapList, stopParentTap } from '@/hooks/useTap';
 
 interface Props {
   onClose: () => void;
@@ -98,12 +98,15 @@ const NotificationsPage = ({ onClose, onProfileTap, onOpenPost }: Props) => {
   // Comment-ish notifications drop you straight into the thread.
   const commentTypes = new Set(['comment', 'comment_like', 'comment_reply', 'mention_comment']);
 
+  const markRead = (n: AppNotification) => {
+    if (n.read) return;
+    setNotifs(prev => prev.map(x => (x.id === n.id ? { ...x, read: true } : x)));
+    markNotificationRead(n.id);
+  };
+
   const handleNotifTap = (n: AppNotification) => {
     // Clear this row's dot regardless of whether it opens anything.
-    if (!n.read) {
-      setNotifs(prev => prev.map(x => (x.id === n.id ? { ...x, read: true } : x)));
-      markNotificationRead(n.id);
-    }
+    markRead(n);
     const target = notifTarget(n);
     if (!target) return;
     if (target.view === 'profile') {
@@ -112,6 +115,14 @@ const NotificationsPage = ({ onClose, onProfileTap, onOpenPost }: Props) => {
       return;
     }
     onOpenPost?.(target.id, target.kind, commentTypes.has(n.type));
+    onClose();
+  };
+
+  // The avatar always goes to whoever acted, whatever the row itself opens.
+  const handleAvatarTap = (n: AppNotification) => {
+    if (!n.actor_id) return;
+    markRead(n);
+    onProfileTap?.(n.actor_id);
     onClose();
   };
 
@@ -161,7 +172,19 @@ const NotificationsPage = ({ onClose, onProfileTap, onOpenPost }: Props) => {
                 !n.read ? 'bg-clean/5' : ''
               } ${notifTarget(n) ? 'active:bg-muted/40 cursor-pointer' : ''}`}
             >
-              <Avatar n={n} />
+              {/* Avatar goes to the actor's profile, never to the post.
+                  -m-1 p-1 grows the 40px avatar to a 48px touch target while
+                  the negative margin cancels the padding, so layout is unchanged. */}
+              {n.actor_id ? (
+                <div
+                  {...stopParentTap(tapList(`avatar-${n.id}`, () => handleAvatarTap(n)))}
+                  className="-m-1 p-1 flex-shrink-0 active:opacity-60 transition-opacity"
+                >
+                  <Avatar n={n} />
+                </div>
+              ) : (
+                <Avatar n={n} />
+              )}
               <div className="flex-1 min-w-0 pt-0.5">
                 <p className="text-sm text-foreground leading-snug">{notifText(n)}</p>
                 <p className="text-xs text-muted-foreground mt-1">{timeAgo(n.created_at)}</p>

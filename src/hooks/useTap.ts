@@ -42,6 +42,22 @@ export function useTap(
   };
 }
 
+type TapHandlers = {
+  onPointerDown: (e: React.PointerEvent) => void;
+  onPointerMove: (e: React.PointerEvent) => void;
+  onPointerUp: (e: React.PointerEvent) => void;
+};
+
+/**
+ * Wraps tap handlers so a control nested inside a tappable row wins over the
+ * row — e.g. an avatar that opens a profile inside a row that opens a post.
+ */
+export const stopParentTap = (h: TapHandlers): TapHandlers => ({
+  onPointerDown: e => { e.stopPropagation(); h.onPointerDown(e); },
+  onPointerMove: e => { e.stopPropagation(); h.onPointerMove(e); },
+  onPointerUp: e => { e.stopPropagation(); h.onPointerUp(e); },
+});
+
 /**
  * Same as useTap but per-item — pass a key to track movement per element.
  * Returns a function that, given a key + callback, returns the three handlers.
