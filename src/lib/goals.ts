@@ -100,6 +100,11 @@ export const completeGoal = async (
     console.warn('[goals] complete failed:', error.message);
     return;
   }
+
+  // Clear the denormalised copy so the profile's GOAL DAYS stat shows "—"
+  // rather than a target that has already been met.
+  await supabase.from('profiles').update({ clean_day_goal: null }).eq('id', goal.user_id);
+
   if (opts.silent) return;
 
   const followerIds = await getFollowerIds(goal.user_id);
