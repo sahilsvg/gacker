@@ -202,8 +202,11 @@ const CalendarView = ({ entries, onDayTap }: Props) => {
     };
   }, []);
 
+  // touchAction pan-y declares horizontal as ours, so iOS does not start a
+  // scroll before the 6px axis threshold is reached, while leaving normal
+  // vertical scrolling over the calendar intact.
   return (
-    <div ref={wrapperRef} className="overflow-hidden">
+    <div ref={wrapperRef} className="overflow-hidden" style={{ touchAction: 'pan-y' }}>
       <div
         ref={trackRef}
         style={{ display: 'flex', width: '300%', willChange: 'transform' }}

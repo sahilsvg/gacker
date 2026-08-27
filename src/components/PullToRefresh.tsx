@@ -13,20 +13,39 @@ const MAX_PULL = 100;
 const PullToRefresh = ({ onRefresh, children, className = '' }: Props) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const startYRef = useRef(0);
+  const startXRef = useRef(0);
   const [pullY, setPullY] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [triggered, setTriggered] = useState(false);
   const pullingRef = useRef(false);
+  // Axis lock. Pulling moves content with a transform rather than native
+  // scroll, so a child's preventDefault cannot stop it — this has to decide
+  // for itself and stand down on horizontal gestures (e.g. the calendar's
+  // month swipe, which would otherwise drag the whole screen up and down).
+  const axisRef = useRef<'undecided' | 'vertical' | 'horizontal'>('undecided');
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    axisRef.current = 'undecided';
     if ((scrollRef.current?.scrollTop ?? 0) > 0) return;
     startYRef.current = e.touches[0].clientY;
+    startXRef.current = e.touches[0].clientX;
     pullingRef.current = true;
   }, []);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (!pullingRef.current || refreshing) return;
+
     const delta = e.touches[0].clientY - startYRef.current;
+    const dx = e.touches[0].clientX - startXRef.current;
+
+    // Same 6px threshold the calendar uses, so both settle on the same axis.
+    if (axisRef.current === 'undecided') {
+      if (Math.abs(dx) > 6 || Math.abs(delta) > 6) {
+        axisRef.current = Math.abs(dx) > Math.abs(delta) ? 'horizontal' : 'vertical';
+      }
+    }
+    if (axisRef.current === 'horizontal') return;
+
     if (delta <= 0) return;
     // Resistance curve — gets harder to pull the further you go
     const pull = Math.min(delta * 0.45, MAX_PULL);
@@ -40,8 +59,11 @@ const PullToRefresh = ({ onRefresh, children, className = '' }: Props) => {
   }, [refreshing, triggered]);
 
   const handleTouchEnd = useCallback(async () => {
+    const wasHorizontal = axisRef.current === 'horizontal';
+    axisRef.current = 'undecided';
     if (!pullingRef.current) return;
     pullingRef.current = false;
+    if (wasHorizontal) { setPullY(0); setTriggered(false); return; }
 
     if (pullY >= THRESHOLD) {
       setRefreshing(true);
