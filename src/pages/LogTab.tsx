@@ -12,6 +12,7 @@ import DatePickerSheet from '@/components/DatePickerSheet';
 import ImageCropper from '@/components/ImageCropper';
 import LikedSongsSheet from '@/components/LikedSongsSheet';
 import { haptic } from '@/lib/haptics';
+import { getActiveGoal, completeGoal } from '@/lib/goals';
 
 const STREAK_MILESTONES = new Set([3, 7, 14, 21, 30, 60, 90, 180, 365]);
 
@@ -202,21 +203,23 @@ const LogTab = ({ resetKey: _, isActive }: { resetKey: number; isActive?: boolea
           createNotificationsForMany(ids, 'streak_milestone', user.id, { streak_count: streak });
         });
       }
-      // Fire any goal milestones (25/50/75/100%) this log just crossed.
-      // Compared against the streak before this entry so each one posts once
-      // per streak, and a multi-day jump still fires everything it passed.
-      const { data: profileData } = await supabase
-        .from('profiles').select('clean_day_goal').eq('id', user.id).maybeSingle();
-      const goalDays = profileData?.clean_day_goal;
-      if (goalDays) {
+      // Goal milestones. Progress milestones post as feed events; reaching the
+      // target also closes the goal out, so it is recorded once and the user is
+      // prompted for a new one rather than sitting on a permanent "Complete!".
+      const activeGoal = await getActiveGoal(user.id);
+      if (activeGoal) {
+        const goalDays = activeGoal.target_days;
         const prevStreak = computeStats(entries).streak;
         const crossed = crossedGoalMilestones(goalDays, prevStreak, streak);
-        if (crossed.length > 0) {
+        // goal_met is posted by completeGoal, so it is not double-posted here.
+        const progressOnly = crossed.filter(m => m.type !== 'goal_met');
+        if (progressOnly.length > 0) {
           const ids = await getFollowerIds(user.id);
-          for (const m of crossed) {
+          for (const m of progressOnly) {
             await postGoalEvent(user.id, m.type, goalDays, ids);
           }
         }
+        if (streak >= goalDays) await completeGoal(activeGoal);
       }
     }
     setTimeout(() => setAnimating(false), 1200);

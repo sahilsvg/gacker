@@ -1,27 +1,36 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Pause, Heart, Music } from 'lucide-react';
-import { Entry } from '@/lib/entries';
+import { Pause, Heart, Music, Target } from 'lucide-react';
+import { Entry, computeStats } from '@/lib/entries';
 import { usePlayer } from '@/contexts/PlayerContext';
 import { getLikedSongs, toggleLikedSong, onLikeChange } from '@/lib/likedSongs';
 import { haptic } from '@/lib/haptics';
 import { useTapList } from '@/hooks/useTap';
+import { Goal, getGoalHistory } from '@/lib/goals';
 import CalendarView from './CalendarView';
 import EntryDetailSheet from './EntryDetailSheet';
 
-type SubTab = 'history' | 'images' | 'music';
+type SubTab = 'history' | 'images' | 'music' | 'goals';
 
 interface Props {
   entries: Record<string, Entry>;
+  profileUserId: string;       // whose profile this is (for the Goals tab)
   currentUserId: string;       // logged-in user (for like buttons)
   canSeeContent: boolean;      // own profile or accepted follower
   lockedMessage?: string;      // shown when !canSeeContent
 }
 
-const ProfileTabs = ({ entries, currentUserId, canSeeContent, lockedMessage }: Props) => {
+const ProfileTabs = ({ entries, profileUserId, currentUserId, canSeeContent, lockedMessage }: Props) => {
   const [subTab, setSubTab] = useState<SubTab>('history');
   const [entryDetail, setEntryDetail] = useState<{ dateKey: string; entry: Entry } | null>(null);
   const [likedUrls, setLikedUrls] = useState<Set<string>>(new Set());
+  const [goals, setGoals] = useState<Goal[] | null>(null);
   const { play, stop, currentSong, isPlaying } = usePlayer();
+
+  // Goal history is only fetched when the tab is opened — most visits never do.
+  useEffect(() => {
+    if (subTab !== 'goals' || goals !== null || !canSeeContent) return;
+    getGoalHistory(profileUserId).then(setGoals);
+  }, [subTab, goals, canSeeContent, profileUserId]);
 
   // Load logged-in user's liked songs for the Music tab heart buttons
   useEffect(() => {
@@ -74,6 +83,7 @@ const ProfileTabs = ({ entries, currentUserId, canSeeContent, lockedMessage }: P
     { id: 'history', label: 'History' },
     { id: 'images', label: 'Images' },
     { id: 'music', label: 'Music' },
+    { id: 'goals', label: 'Goals' },
   ];
 
   return (
@@ -201,6 +211,64 @@ const ProfileTabs = ({ entries, currentUserId, canSeeContent, lockedMessage }: P
               </div>
             )
           )}
+          {subTab === 'goals' && (() => {
+            const activeGoal = goals?.find(g => g.status === 'active') ?? null;
+            // Abandoned goals are just the residue of changing your mind, so
+            // history shows what was actually finished, plus what's in flight.
+            const completed = (goals ?? []).filter(g => g.status === 'completed');
+            const { streak } = computeStats(entries);
+
+            if (goals === null) {
+              return <p className="text-muted-foreground text-sm text-center py-8">Loading…</p>;
+            }
+            if (!activeGoal && completed.length === 0) {
+              return (
+                <div className="text-center py-12">
+                  <Target size={28} className="text-muted-foreground/40 mx-auto mb-3" />
+                  <p className="text-foreground font-semibold text-sm mb-1">No goals yet</p>
+                  <p className="text-muted-foreground text-xs">Completed goals show up here.</p>
+                </div>
+              );
+            }
+            return (
+              <div className="space-y-3">
+                {activeGoal && (
+                  <div className="bg-card border border-clean/30 rounded-2xl p-4">
+                    <div className="flex items-baseline justify-between mb-2.5">
+                      <span className="text-sm font-semibold text-foreground">
+                        {activeGoal.target_days} day goal
+                      </span>
+                      <span className="text-xs text-clean font-semibold">In progress</span>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-clean rounded-full transition-all duration-700"
+                        style={{ width: `${Math.min(streak / activeGoal.target_days, 1) * 100}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {streak} / {activeGoal.target_days} days
+                    </p>
+                  </div>
+                )}
+                {completed.map(g => (
+                  <div key={g.id} className="flex items-center gap-3 bg-card border border-border rounded-2xl p-4">
+                    <div className="w-9 h-9 rounded-full bg-clean/15 flex items-center justify-center flex-shrink-0">
+                      <Target size={16} className="text-clean" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground">{g.target_days} day goal</p>
+                      <p className="text-xs text-muted-foreground">
+                        {g.completed_at
+                          ? `Completed ${new Date(g.completed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+                          : 'Completed'}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </>
       )}
 

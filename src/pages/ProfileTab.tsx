@@ -156,6 +156,7 @@ const ProfileTab = ({ isActive, resetKey }: Props) => {
             {!loading && user && (
               <ProfileTabs
                 entries={entries}
+                profileUserId={user.id}
                 currentUserId={user.id}
                 canSeeContent={true}
               />

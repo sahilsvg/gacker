@@ -161,6 +161,7 @@ const UserProfile = ({ userId, onBack }: Props) => {
             {user && (
               <ProfileTabs
                 entries={entries}
+                profileUserId={userId}
                 currentUserId={user.id}
                 canSeeContent={canSeeContent}
                 lockedMessage={

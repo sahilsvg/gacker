@@ -6,20 +6,24 @@ import { fetchEntries, computeStats, Entry } from '@/lib/entries';
 import { supabase } from '@/integrations/supabase/client';
 import { haptic } from '@/lib/haptics';
 import { useTap } from '@/hooks/useTap';
-import { postGoalEvent, getFollowerIds } from '@/lib/social';
+import { Goal, getActiveGoal, setGoal, completeGoal, minGoalTarget } from '@/lib/goals';
 
 // ─── Goal Picker Sheet ───────────────────────────────────────────────────────
 
 const DAYS = Array.from({ length: 200 }, (_, i) => i + 1);
 const ITEM_H = 52; // px per row
 
-const GoalPicker = ({ current, onSave, onClose }: {
+const GoalPicker = ({ current, min, onSave, onClose }: {
   current: number | null;
+  /** Lowest selectable target — always above the current streak. */
+  min: number;
   onSave: (days: number) => void;
   onClose: () => void;
 }) => {
   const listRef = useRef<HTMLDivElement>(null);
-  const [selected, setSelected] = useState(current ?? 30);
+  // Anything at or below the streak is already achieved, so it is not offered.
+  const days = DAYS.filter(d => d >= min);
+  const [selected, setSelected] = useState(Math.max(current ?? 30, min));
   const [isClosing, setIsClosing] = useState(false);
 
   const handleClose = () => { setIsClosing(true); setTimeout(onClose, 210); };
@@ -33,13 +37,13 @@ const GoalPicker = ({ current, onSave, onClose }: {
     const el = listRef.current;
     if (!el) return;
     const idx = Math.round(el.scrollTop / ITEM_H);
-    setSelected(DAYS[Math.min(idx, DAYS.length - 1)]);
+    setSelected(days[Math.min(idx, days.length - 1)]);
   };
 
   useEffect(() => {
     const el = listRef.current;
     if (!el) return;
-    const idx = DAYS.indexOf(selected);
+    const idx = days.indexOf(selected);
     el.scrollTop = idx * ITEM_H;
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -72,7 +76,7 @@ const GoalPicker = ({ current, onSave, onClose }: {
             style={{ scrollSnapType: 'y mandatory', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}
           >
             <div style={{ height: ITEM_H * 2 }} />
-            {DAYS.map(d => (
+            {days.map(d => (
               <div key={d} style={{ height: ITEM_H, scrollSnapAlign: 'center' }} className="flex items-center justify-center">
                 <span className={`font-mono-stats text-2xl transition-all duration-150 ${
                   d === selected ? 'text-clean font-semibold scale-110' : 'text-muted-foreground/50 scale-95'
@@ -301,7 +305,11 @@ const GanalyticsTab = ({ resetKey: _, isActive }: { resetKey: number; isActive?:
   const { user } = useAuth();
   const [entries, setEntries] = useState<Record<string, Entry>>({});
   const [loading, setLoading] = useState(true);
-  const [goal, setGoal] = useState<number | null>(null);
+  const [activeGoal, setActiveGoal] = useState<Goal | null>(null);
+  // Target of a goal closed out on load, so we can congratulate rather than
+  // just showing an empty goal slot.
+  const [justCompleted, setJustCompleted] = useState<number | null>(null);
+  const [goalError, setGoalError] = useState<string | null>(null);
   const [showPicker, setShowPicker] = useState(false);
 
   // Increment animKey each time tab becomes active → forces animation replay
@@ -312,29 +320,38 @@ const GanalyticsTab = ({ resetKey: _, isActive }: { resetKey: number; isActive?:
 
   useEffect(() => {
     if (!user) return;
-    Promise.all([
-      fetchEntries(user.id),
-      supabase.from('profiles').select('clean_day_goal').eq('id', user.id).maybeSingle(),
-    ]).then(([data, profileRes]) => {
+    Promise.all([fetchEntries(user.id), getActiveGoal(user.id)]).then(async ([data, g]) => {
       setEntries(data);
-      setGoal(profileRes.data?.clean_day_goal ?? null);
+      const { streak: s0 } = computeStats(data);
+      // A goal the streak has already passed closes out silently: it may have
+      // been met while away, or carried over from before goals had a
+      // lifecycle. Dating it now, or announcing it to followers, would be a lie.
+      if (g && s0 >= g.target_days) {
+        await completeGoal(g, { silent: true });
+        setActiveGoal(null);
+        setJustCompleted(g.target_days);
+      } else {
+        setActiveGoal(g);
+      }
       setLoading(false);
     });
   }, [user]);
-
-  const handleSaveGoal = async (days: number) => {
-    setGoal(days);
-    if (!user) return;
-    await supabase.from('profiles').update({ clean_day_goal: days }).eq('id', user.id);
-    const followerIds = await getFollowerIds(user.id);
-    await postGoalEvent(user.id, 'goal_set', days, followerIds);
-  };
 
   const { streak, cleanDays, redDays } = computeStats(entries);
   const total = cleanDays + redDays;
   const fireRate = total > 0 ? Math.round((redDays / total) * 100) : 0;
 
+  const handleSaveGoal = async (days: number) => {
+    if (!user) return;
+    const err = await setGoal(user.id, days, streak);
+    if (err) { setGoalError(err); return; }
+    setGoalError(null);
+    setJustCompleted(null);
+    setActiveGoal(await getActiveGoal(user.id));
+  };
+
   // Goal is based on streak (consecutive clean days), not total clean days
+  const goal = activeGoal?.target_days ?? null;
   const goalProgress = goal && streak > 0 ? Math.min(streak / goal, 1) : 0;
   const daysLeft = goal ? Math.max(goal - streak, 0) : null;
 
@@ -368,7 +385,6 @@ const GanalyticsTab = ({ resetKey: _, isActive }: { resetKey: number; isActive?:
                   {daysLeft !== null && daysLeft > 0 && (
                     <span className="text-muted-foreground/60"> · {daysLeft} to go</span>
                   )}
-                  {daysLeft === 0 && <span className="text-clean font-semibold"> · Complete!</span>}
                 </span>
               </div>
 
@@ -384,10 +400,42 @@ const GanalyticsTab = ({ resetKey: _, isActive }: { resetKey: number; isActive?:
                   style={{ width: `${goalProgress * 100}%` }}
                 />
               </div>
-              {daysLeft === 0 && (
-                <p className="text-clean text-xs font-medium mt-2 text-center">🎉 You hit your goal!</p>
-              )}
             </div>
+          )}
+
+          {/* No active goal — either never set one, or just finished one.
+              A goal is always something still ahead, so this is the only place
+              "complete" is shown: once, as a prompt to pick the next one. */}
+          {!loading && !goal && (
+            <div className="bg-card border border-border rounded-2xl p-5 mb-6 text-center">
+              {justCompleted !== null ? (
+                <>
+                  <p className="text-clean font-semibold text-sm mb-1">
+                    {justCompleted} day goal complete
+                  </p>
+                  <p className="text-muted-foreground text-xs mb-4">
+                    You're on {streak} days. Pick your next one.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-foreground font-semibold text-sm mb-1">No goal set</p>
+                  <p className="text-muted-foreground text-xs mb-4">
+                    Set a streak to aim for and track it here.
+                  </p>
+                </>
+              )}
+              <button
+                onPointerDown={e => { e.preventDefault(); haptic.light(); setShowPicker(true); }}
+                className="px-5 h-11 rounded-xl bg-clean text-clean-foreground font-semibold text-sm active:scale-95 transition-all"
+              >
+                {justCompleted !== null ? 'Set next goal' : 'Set a goal'}
+              </button>
+            </div>
+          )}
+
+          {goalError && (
+            <p className="text-red text-xs text-center mb-4">{goalError}</p>
           )}
 
           {/* Stats grid */}
@@ -429,6 +477,7 @@ const GanalyticsTab = ({ resetKey: _, isActive }: { resetKey: number; isActive?:
       {showPicker && (
         <GoalPicker
           current={goal}
+          min={minGoalTarget(streak)}
           onSave={handleSaveGoal}
           onClose={() => setShowPicker(false)}
         />
