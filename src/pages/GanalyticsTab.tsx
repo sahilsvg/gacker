@@ -6,7 +6,7 @@ import { fetchEntries, computeStats, Entry } from '@/lib/entries';
 import { supabase } from '@/integrations/supabase/client';
 import { haptic } from '@/lib/haptics';
 import { useTap } from '@/hooks/useTap';
-import { Goal, getActiveGoal, setGoal, completeGoal, minGoalTarget } from '@/lib/goals';
+import { Goal, getActiveGoal, setGoal, syncGoalProgress, minGoalTarget } from '@/lib/goals';
 
 // ─── Goal Picker Sheet ───────────────────────────────────────────────────────
 
@@ -323,15 +323,16 @@ const GanalyticsTab = ({ resetKey: _, isActive }: { resetKey: number; isActive?:
     Promise.all([fetchEntries(user.id), getActiveGoal(user.id)]).then(async ([data, g]) => {
       setEntries(data);
       const { streak: s0 } = computeStats(data);
-      // A goal the streak has already passed closes out silently: it may have
-      // been met while away, or carried over from before goals had a
-      // lifecycle. Dating it now, or announcing it to followers, would be a lie.
-      if (g && s0 >= g.target_days) {
-        await completeGoal(g, { silent: true });
-        setActiveGoal(null);
-        setJustCompleted(g.target_days);
+      // The streak advances with the calendar, so a goal can be reached — and
+      // milestones passed — without the user logging anything. Reconcile on
+      // open rather than only on log. syncGoalProgress is idempotent, so
+      // reopening the tab does not re-announce anything.
+      if (g) {
+        const { completed } = await syncGoalProgress(g, s0);
+        setActiveGoal(completed ? null : g);
+        if (completed) setJustCompleted(g.target_days);
       } else {
-        setActiveGoal(g);
+        setActiveGoal(null);
       }
       setLoading(false);
     });

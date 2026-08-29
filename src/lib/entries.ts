@@ -73,9 +73,10 @@ export const computeStats = (entries: Record<string, Entry>) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  let streak = 0;
   let cleanDays = 0;
   let redDays = 0;
+  let lastRed: Date | null = null;
+  let firstLogged: Date | null = null;
 
   for (const key of Object.keys(entries)) {
     const [y, m, d] = key.split('-').map(Number);
@@ -83,22 +84,26 @@ export const computeStats = (entries: Record<string, Entry>) => {
     if (date > today) continue;
     if (entries[key].clean) cleanDays++;
     else redDays++;
+
+    if (!firstLogged || date < firstLogged) firstLogged = date;
+    if (!entries[key].clean && (!lastRed || date > lastRed)) lastRed = date;
   }
 
-  // If the user hasn't logged today yet, start the streak check from yesterday
-  // so a streak built up over prior days doesn't reset to 0 at midnight.
-  const todayKey = formatDateKey(today);
-  const check = new Date(today);
-  if (!(todayKey in entries)) {
-    check.setDate(check.getDate() - 1);
-  }
+  // Streak is days since the last red day, not consecutive logged days. Only
+  // an explicit red day resets it: someone who stays clean but forgets to log
+  // for a week has not broken anything, and previously would have been shown a
+  // zero. Because of this the streak advances with the calendar rather than
+  // with logging, so anything that fires on a threshold has to track its own
+  // high-water mark instead of comparing before/after a log.
+  const DAY_MS = 86_400_000;
+  const daysBetween = (a: Date, b: Date) => Math.round((a.getTime() - b.getTime()) / DAY_MS);
 
-  while (true) {
-    const key = formatDateKey(check);
-    if (!(key in entries)) break;
-    if (!entries[key].clean) break;
-    streak++;
-    check.setDate(check.getDate() - 1);
+  let streak = 0;
+  if (lastRed) {
+    streak = daysBetween(today, lastRed);
+  } else if (firstLogged) {
+    // Never had a red day — clean for as long as they have been tracking.
+    streak = daysBetween(today, firstLogged) + 1;
   }
 
   return { streak, cleanDays, redDays };

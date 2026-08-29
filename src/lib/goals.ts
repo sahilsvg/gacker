@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { getFollowerIds, postGoalEvent } from '@/lib/social';
+import { getFollowerIds, postGoalEvent, goalMilestones } from '@/lib/social';
 
 export type GoalStatus = 'active' | 'completed' | 'abandoned';
 
@@ -12,6 +12,10 @@ export interface Goal {
   started_at: string;
   completed_at: string | null;
   created_at: string;
+  /** Highest milestone (in streak-days) already posted for this goal. */
+  last_milestone_day: number;
+  /** Predates milestone tracking; completes quietly rather than announcing. */
+  legacy: boolean;
 }
 
 /**
@@ -109,4 +113,50 @@ export const completeGoal = async (
 
   const followerIds = await getFollowerIds(goal.user_id);
   await postGoalEvent(goal.user_id, 'goal_met', goal.target_days, followerIds);
+};
+
+/**
+ * Bring a goal up to date with the current streak: post any milestones newly
+ * reached, and complete it if the target is met.
+ *
+ * Called both after logging and when Ganalytics loads, because the streak now
+ * advances with the calendar — a goal can be reached without the user logging
+ * anything. `last_milestone_day` makes that safe to call repeatedly: a
+ * milestone posts once and is never re-announced on a later app open.
+ */
+export const syncGoalProgress = async (
+  goal: Goal,
+  streak: number,
+): Promise<{ completed: boolean }> => {
+  // A goal carried over from before this existed, already passed, is history:
+  // close it quietly rather than announcing something that happened weeks ago.
+  if (goal.legacy && streak >= goal.target_days) {
+    await completeGoal(goal, { silent: true });
+    return { completed: true };
+  }
+
+  const due = goalMilestones(goal.target_days).filter(
+    m => m.day > goal.last_milestone_day && m.day <= streak,
+  );
+
+  if (due.length > 0) {
+    // goal_met is posted by completeGoal below, so it is not posted twice.
+    const progress = due.filter(m => m.type !== 'goal_met');
+    if (progress.length > 0) {
+      const followerIds = await getFollowerIds(goal.user_id);
+      for (const m of progress) {
+        await postGoalEvent(goal.user_id, m.type, goal.target_days, followerIds);
+      }
+    }
+    await supabase
+      .from('goals')
+      .update({ last_milestone_day: Math.max(...due.map(m => m.day)) })
+      .eq('id', goal.id);
+  }
+
+  if (streak >= goal.target_days) {
+    await completeGoal(goal);
+    return { completed: true };
+  }
+  return { completed: false };
 };

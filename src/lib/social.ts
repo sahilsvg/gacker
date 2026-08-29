@@ -223,12 +223,6 @@ export const goalMilestones = (goalDays: number): { type: GoalEventType; day: nu
     .sort((a, b) => a.day - b.day);
 };
 
-// Milestones newly crossed by this log. Uses a range rather than equality so a
-// streak that jumps several days at once (e.g. backfilling past entries) still
-// fires everything it passed instead of silently skipping.
-export const crossedGoalMilestones = (goalDays: number, prevStreak: number, newStreak: number) =>
-  goalMilestones(goalDays).filter(m => m.day > prevStreak && m.day <= newStreak);
-
 // Post a goal event and notify followers
 export const postGoalEvent = async (
   userId: string,

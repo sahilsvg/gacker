@@ -4,7 +4,7 @@ import { ChevronDown, ImagePlus, X } from 'lucide-react';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDateKey, upsertEntry, fetchEntries, computeStats, Entry } from '@/lib/entries';
-import { getFollowerIds, searchFollowedByHandle, resolveHandles, SearchProfile, postGoalEvent, crossedGoalMilestones } from '@/lib/social';
+import { getFollowerIds, searchFollowedByHandle, resolveHandles, SearchProfile } from '@/lib/social';
 import { createNotificationsForMany, createNotification } from '@/lib/notifications';
 import { supabase } from '@/integrations/supabase/client';
 import SongPicker, { SongSelection } from '@/components/SongPicker';
@@ -12,7 +12,7 @@ import DatePickerSheet from '@/components/DatePickerSheet';
 import ImageCropper from '@/components/ImageCropper';
 import LikedSongsSheet from '@/components/LikedSongsSheet';
 import { haptic } from '@/lib/haptics';
-import { getActiveGoal, completeGoal } from '@/lib/goals';
+import { getActiveGoal, syncGoalProgress } from '@/lib/goals';
 
 const STREAK_MILESTONES = new Set([3, 7, 14, 21, 30, 60, 90, 180, 365]);
 
@@ -221,29 +221,31 @@ const LogTab = ({ resetKey: _, isActive }: { resetKey: number; isActive?: boolea
     if (clean) {
       triggerCleanConfetti();
       const { streak } = computeStats(updated);
-      if (STREAK_MILESTONES.has(streak)) {
-        getFollowerIds(user.id).then(ids => {
-          createNotificationsForMany(ids, 'streak_milestone', user.id, { streak_count: streak });
-        });
+
+      // The streak advances with the calendar now, so "did this log land on a
+      // milestone" no longer works — a log often leaves the streak unchanged.
+      // Announce any milestone passed since the last one announced instead.
+      const { data: prof } = await supabase
+        .from('profiles').select('last_streak_notified').eq('id', user.id).maybeSingle();
+      const notifiedUpTo = prof?.last_streak_notified ?? 0;
+      const passed = [...STREAK_MILESTONES]
+        .filter(m => m > notifiedUpTo && m <= streak)
+        .sort((a, b) => a - b);
+      if (passed.length > 0) {
+        const ids = await getFollowerIds(user.id);
+        // Only the highest, so a long gap does not fire a burst of them.
+        const top = passed[passed.length - 1];
+        createNotificationsForMany(ids, 'streak_milestone', user.id, { streak_count: top });
+        await supabase.from('profiles').update({ last_streak_notified: top }).eq('id', user.id);
+      } else if (streak < notifiedUpTo) {
+        // Streak reset by a red day — allow those milestones to fire again.
+        await supabase.from('profiles').update({ last_streak_notified: 0 }).eq('id', user.id);
       }
       // Goal milestones. Progress milestones post as feed events; reaching the
       // target also closes the goal out, so it is recorded once and the user is
       // prompted for a new one rather than sitting on a permanent "Complete!".
       const activeGoal = await getActiveGoal(user.id);
-      if (activeGoal) {
-        const goalDays = activeGoal.target_days;
-        const prevStreak = computeStats(entries).streak;
-        const crossed = crossedGoalMilestones(goalDays, prevStreak, streak);
-        // goal_met is posted by completeGoal, so it is not double-posted here.
-        const progressOnly = crossed.filter(m => m.type !== 'goal_met');
-        if (progressOnly.length > 0) {
-          const ids = await getFollowerIds(user.id);
-          for (const m of progressOnly) {
-            await postGoalEvent(user.id, m.type, goalDays, ids);
-          }
-        }
-        if (streak >= goalDays) await completeGoal(activeGoal);
-      }
+      if (activeGoal) await syncGoalProgress(activeGoal, streak);
     }
     setTimeout(() => setAnimating(false), 1200);
   };
