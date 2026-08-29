@@ -78,16 +78,39 @@ const LogTab = ({ resetKey: _, isActive }: { resetKey: number; isActive?: boolea
     fetchEntries(user.id).then(setEntries);
   }, [user]);
 
-  // Reset image state when date changes
+  // Rebuild the picker's selection from what was saved, so revisiting a date
+  // shows its song the way it already shows its notes and photo.
+  const entryToSong = (entry?: Entry): SongSelection | null =>
+    entry?.song_name
+      ? {
+          track: {
+            id: entry.song_preview_url ?? entry.song_name,
+            name: entry.song_name,
+            artist: entry.song_artist ?? '',
+            albumArt: entry.song_album_art ?? null,
+            previewUrl: entry.song_preview_url ?? null,
+          },
+        }
+      : null;
+
+  // Hydrate the form from the saved entry, but only when the date changes or
+  // that date's entry first arrives. Keying this on `entries` alone meant any
+  // background refetch — the session refreshing after the native photo picker
+  // returns, for one — reset the form mid-edit and dropped the chosen song.
+  const hydratedKey = useRef('');
   useEffect(() => {
+    const entry = entries[selectedDate];
+    const key = `${selectedDate}|${entry ? 'saved' : 'new'}`;
+    if (hydratedKey.current === key) return;
+    hydratedKey.current = key;
+
     if (newImagePreview) URL.revokeObjectURL(newImagePreview);
     setNewImageBlob(null);
     setNewImagePreview(null);
     setImageRemoved(false);
-    const entry = entries[selectedDate];
     setNotes(entry?.notes ?? '');
-    setSong(null);
-  }, [selectedDate, entries]);
+    setSong(entryToSong(entry));
+  }, [selectedDate, entries]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const existingEntry = entries[selectedDate];
   const submitted = existingEntry ? (existingEntry.clean ? 'clean' : 'red') : null;
