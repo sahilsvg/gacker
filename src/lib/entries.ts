@@ -75,36 +75,28 @@ export const computeStats = (entries: Record<string, Entry>) => {
 
   let cleanDays = 0;
   let redDays = 0;
-  let lastRed: Date | null = null;
-  let firstLogged: Date | null = null;
 
+  const logged: { date: Date; clean: boolean }[] = [];
   for (const key of Object.keys(entries)) {
     const [y, m, d] = key.split('-').map(Number);
     const date = new Date(y, m - 1, d);
     if (date > today) continue;
+    logged.push({ date, clean: entries[key].clean });
     if (entries[key].clean) cleanDays++;
     else redDays++;
-
-    if (!firstLogged || date < firstLogged) firstLogged = date;
-    if (!entries[key].clean && (!lastRed || date > lastRed)) lastRed = date;
   }
 
-  // Streak is days since the last red day, not consecutive logged days. Only
-  // an explicit red day resets it: someone who stays clean but forgets to log
-  // for a week has not broken anything, and previously would have been shown a
-  // zero. Because of this the streak advances with the calendar rather than
-  // with logging, so anything that fires on a threshold has to track its own
-  // high-water mark instead of comparing before/after a log.
-  const DAY_MS = 86_400_000;
-  const daysBetween = (a: Date, b: Date) => Math.round((a.getTime() - b.getTime()) / DAY_MS);
-
-  let streak = 0;
-  if (lastRed) {
-    streak = daysBetween(today, lastRed);
-  } else if (firstLogged) {
-    // Never had a red day — clean for as long as they have been tracking.
-    streak = daysBetween(today, firstLogged) + 1;
-  }
+  // Streak is the number of clean days *logged* since the last red day.
+  //
+  // A day that was never logged neither counts toward the streak nor breaks it.
+  // Counting calendar days instead would credit days the user never reported;
+  // breaking on a gap (the original behaviour) reset a streak to zero after two
+  // quiet days even though nothing was relapsed on.
+  const lastRed = logged.reduce<Date | null>(
+    (acc, r) => (!r.clean && (!acc || r.date > acc) ? r.date : acc),
+    null,
+  );
+  const streak = logged.filter(r => r.clean && (!lastRed || r.date > lastRed)).length;
 
   return { streak, cleanDays, redDays };
 };

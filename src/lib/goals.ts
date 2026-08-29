@@ -135,8 +135,17 @@ export const syncGoalProgress = async (
     return { completed: true };
   }
 
+  // A red day resets progress but keeps the goal, so the high-water mark has to
+  // come back down with it — otherwise the milestones already passed could
+  // never fire again on the climb back up.
+  let mark = goal.last_milestone_day;
+  if (streak < mark) {
+    mark = 0;
+    await supabase.from('goals').update({ last_milestone_day: 0 }).eq('id', goal.id);
+  }
+
   const due = goalMilestones(goal.target_days).filter(
-    m => m.day > goal.last_milestone_day && m.day <= streak,
+    m => m.day > mark && m.day <= streak,
   );
 
   if (due.length > 0) {
