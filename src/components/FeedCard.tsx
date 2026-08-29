@@ -194,12 +194,31 @@ const FeedCard = ({ item, onProfileTap, onUpdate, isTabActive, openComments = fa
           </div>
         </div>
 
-        {/* Status */}
-        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold mb-3 ${
-          item.clean ? 'bg-clean/15 text-clean' : 'bg-red/15 text-red'
-        }`}>
-          <span className={`w-1.5 h-1.5 rounded-full ${item.clean ? 'bg-clean' : 'bg-red'}`} />
-          {item.clean ? 'Clean Day' : 'Red Day'}
+        {/* Status, then the author's current streak and goal. These read from
+            the same places the profile does, so the numbers always agree.
+            flex-wrap so long values drop to a second line instead of
+            overflowing on a narrow screen. */}
+        <div className="flex flex-wrap items-center gap-1.5 mb-3">
+          <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+            item.clean ? 'bg-clean/15 text-clean' : 'bg-red/15 text-red'
+          }`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${item.clean ? 'bg-clean' : 'bg-red'}`} />
+            {item.clean ? 'Clean Day' : 'Red Day'}
+          </div>
+
+          {item.authorStreak !== undefined && (
+            <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-muted text-muted-foreground">
+              <span aria-hidden>✅</span>
+              {item.authorStreak}
+            </div>
+          )}
+
+          {item.authorGoal != null && (
+            <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-muted text-muted-foreground">
+              <span aria-hidden>🎯</span>
+              {item.authorGoal}
+            </div>
+          )}
         </div>
 
         {/* Notes */}

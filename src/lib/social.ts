@@ -1,5 +1,26 @@
 import { supabase } from '@/integrations/supabase/client';
 import { createNotification } from '@/lib/notifications';
+import { computeStats, Entry } from '@/lib/entries';
+
+// Current streak per user, from the same computeStats the profile uses, so the
+// pill on a post and the STREAK stat on that profile can never disagree.
+// Streak walks back from today, so it cannot be stored — it goes stale as soon
+// as a day passes without logging.
+const streaksByUser = async (userIds: string[]): Promise<Record<string, number>> => {
+  if (userIds.length === 0) return {};
+  const { data } = await supabase
+    .from('entries')
+    .select('user_id, date, clean')
+    .in('user_id', userIds);
+
+  const byUser: Record<string, Record<string, Entry>> = {};
+  for (const row of (data ?? []) as any[]) {
+    (byUser[row.user_id] ??= {})[row.date] = row as Entry;
+  }
+  return Object.fromEntries(
+    userIds.map(id => [id, computeStats(byUser[id] ?? {}).streak]),
+  );
+};
 
 // goal_25 / goal_50 / goal_75 are progress milestones; goal_met is 100%.
 // Must stay in sync with the check constraint on public.goal_events.
@@ -26,6 +47,10 @@ export interface FeedItem {
   song_preview_url?: string | null;
   image_url?: string | null;
   profile: { id: string; name: string; handle: string; avatar_url: string | null };
+  // Author's current streak and goal, shown as pills on the card. Current
+  // values rather than values at post time, so they match their profile.
+  authorStreak?: number;
+  authorGoal?: number | null;
   likeCount: number;
   iLiked: boolean;
   commentCount: number;
@@ -100,10 +125,11 @@ export const getFeed = async (userId: string): Promise<FeedItem[]> => {
   const followingIds = (follows ?? []).map(f => f.following_id);
   if (followingIds.length === 0) return [];
 
-  const [entriesRes, profilesRes, goalEventsRes] = await Promise.all([
+  const [entriesRes, profilesRes, goalEventsRes, streaks] = await Promise.all([
     supabase.from('entries').select('*').in('user_id', followingIds).order('created_at', { ascending: false }).limit(50),
-    supabase.from('profiles').select('id, name, handle, avatar_url').in('id', followingIds),
+    supabase.from('profiles').select('id, name, handle, avatar_url, clean_day_goal').in('id', followingIds),
     supabase.from('goal_events').select('*').in('user_id', followingIds).order('created_at', { ascending: false }).limit(50),
+    streaksByUser(followingIds),
   ]);
 
   const entries = entriesRes.data ?? [];
@@ -123,6 +149,8 @@ export const getFeed = async (userId: string): Promise<FeedItem[]> => {
   const entryItems: FeedItem[] = entries.map(entry => ({
     ...entry,
     profile: profileMap[entry.user_id],
+    authorStreak: streaks[entry.user_id] ?? 0,
+    authorGoal: profileMap[entry.user_id]?.clean_day_goal ?? null,
     likeCount: likes.filter(l => l.entry_id === entry.id).length,
     iLiked: likes.some(l => l.entry_id === entry.id && l.user_id === userId),
     commentCount: comments.filter(c => c.entry_id === entry.id).length,
@@ -138,7 +166,7 @@ export const getFeed = async (userId: string): Promise<FeedItem[]> => {
 export const getMyActivity = async (userId: string): Promise<FeedItem[]> => {
   const [entriesRes, profileRes, goalEventsRes] = await Promise.all([
     supabase.from('entries').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(50),
-    supabase.from('profiles').select('id, name, handle, avatar_url').eq('id', userId).maybeSingle(),
+    supabase.from('profiles').select('id, name, handle, avatar_url, clean_day_goal').eq('id', userId).maybeSingle(),
     supabase.from('goal_events').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(50),
   ]);
 
@@ -157,9 +185,15 @@ export const getMyActivity = async (userId: string): Promise<FeedItem[]> => {
   const likes = likesRes.data ?? [];
   const comments = commentsRes.data ?? [];
 
+  // Not computed from `entries` above: that is capped at 50 rows, which would
+  // truncate a long streak and disagree with the profile's STREAK stat.
+  const myStreak = (await streaksByUser([userId]))[userId] ?? 0;
+
   const entryItems: FeedItem[] = entries.map(entry => ({
     ...entry,
     profile,
+    authorStreak: myStreak,
+    authorGoal: (profile as any)?.clean_day_goal ?? null,
     likeCount: likes.filter(l => l.entry_id === entry.id).length,
     iLiked: likes.some(l => l.entry_id === entry.id && l.user_id === userId),
     commentCount: comments.filter(c => c.entry_id === entry.id).length,
