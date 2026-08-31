@@ -7,7 +7,7 @@ import { PlayerProvider } from '@/contexts/PlayerContext';
 import MiniPlayer from '@/components/MiniPlayer';
 import { Keyboard } from '@capacitor/keyboard';
 import { Capacitor } from '@capacitor/core';
-import { App } from '@capacitor/app';
+import { App as CapacitorApp } from '@capacitor/app';
 import SplashScreen from '@/components/SplashScreen';
 import { fetchEntries } from '@/lib/entries';
 import { loadReminder, syncDailyReminders } from '@/lib/reminders';
@@ -52,7 +52,7 @@ const AppShell = () => {
     resync();
 
     let remove: (() => void) | undefined;
-    App.addListener('appStateChange', ({ isActive }) => {
+    CapacitorApp.addListener('appStateChange', ({ isActive }) => {
       if (isActive) resync();
     }).then(handle => { remove = () => handle.remove(); });
     return () => { remove?.(); };
