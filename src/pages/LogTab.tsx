@@ -13,6 +13,7 @@ import ImageCropper from '@/components/ImageCropper';
 import LikedSongsSheet from '@/components/LikedSongsSheet';
 import { haptic } from '@/lib/haptics';
 import { getActiveGoal, syncGoalProgress } from '@/lib/goals';
+import { loadReminder, syncDailyReminders } from '@/lib/reminders';
 
 const STREAK_MILESTONES = new Set([3, 7, 14, 21, 30, 60, 90, 180, 365]);
 
@@ -204,6 +205,8 @@ const LogTab = ({ resetKey: _, isActive }: { resetKey: number; isActive?: boolea
 
     const updated = await fetchEntries(user.id);
     setEntries(updated);
+    // Drop the day just logged from the reminder schedule.
+    syncDailyReminders(loadReminder(), updated);
 
     if (!clean) {
       const el = document.createElement('div');

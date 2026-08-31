@@ -6,6 +6,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { validateHandle, validateName, sanitizeHandle, sanitizeName } from '@/lib/validation';
 import { useSwipeToDismiss } from '@/hooks/useSwipeToDismiss';
 import ImageCropper from '@/components/ImageCropper';
+import { fetchEntries } from '@/lib/entries';
+import {
+  ReminderSetting, loadReminder, saveReminder, syncDailyReminders, ensureReminderPermission,
+} from '@/lib/reminders';
 
 interface Props {
   onClose: () => void;
@@ -110,6 +114,26 @@ const SettingsPage = ({ onClose }: Props) => {
     if (error) setHandleError('Could not save handle.');
     else { await refreshProfile(); setEditingHandle(false); setHandleAvailable(null); }
     setHandleSaving(false);
+  };
+
+  // Daily reminder — a device setting, so it lives in localStorage rather than
+  // on the profile: turning it on here should not turn it on on another phone.
+  const [reminder, setReminder] = useState<ReminderSetting>(loadReminder);
+  const [reminderDenied, setReminderDenied] = useState(false);
+
+  const applyReminder = async (next: ReminderSetting) => {
+    if (next.enabled) {
+      const ok = await ensureReminderPermission();
+      if (!ok) {
+        setReminderDenied(true);
+        return;
+      }
+      setReminderDenied(false);
+    }
+    setReminder(next);
+    saveReminder(next);
+    const entries = user ? await fetchEntries(user.id) : {};
+    await syncDailyReminders(next, entries);
   };
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -288,6 +312,57 @@ const SettingsPage = ({ onClose }: Props) => {
             <span className="text-sm text-foreground">Phone</span>
             <span className="text-muted-foreground text-sm">{phone}</span>
           </div>
+        </Section>
+
+        {/* Daily reminder */}
+        <Section label="Reminders">
+          <div className="flex items-center justify-between px-4 py-3.5">
+            <div className="flex-1 min-w-0 pr-3">
+              <p className="text-sm text-foreground">Daily reminder</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                A nudge to log, only on days you haven't.
+              </p>
+            </div>
+            <button
+              onPointerDown={e => { e.preventDefault(); applyReminder({ ...reminder, enabled: !reminder.enabled }); }}
+              className={`w-12 h-7 rounded-full flex-shrink-0 transition-colors relative ${
+                reminder.enabled ? 'bg-clean' : 'bg-muted'
+              }`}
+            >
+              <span
+                className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-all ${
+                  reminder.enabled ? 'left-6' : 'left-1'
+                }`}
+              />
+            </button>
+          </div>
+
+          {reminder.enabled && (
+            <>
+              <div className="h-px bg-border mx-4" />
+              <div className="flex items-center justify-between px-4 py-3.5">
+                <span className="text-sm text-foreground">Time</span>
+                <input
+                  type="time"
+                  value={`${String(reminder.hour).padStart(2, '0')}:${String(reminder.minute).padStart(2, '0')}`}
+                  onChange={e => {
+                    const [h, m] = e.target.value.split(':').map(Number);
+                    if (Number.isFinite(h) && Number.isFinite(m)) applyReminder({ ...reminder, hour: h, minute: m });
+                  }}
+                  className="bg-background border border-border rounded-xl px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+              </div>
+            </>
+          )}
+
+          {reminderDenied && (
+            <>
+              <div className="h-px bg-border mx-4" />
+              <p className="px-4 py-3 text-xs text-red">
+                Notifications are turned off for The Gacker. Enable them in iOS Settings to use reminders.
+              </p>
+            </>
+          )}
         </Section>
 
         {/* Sign out + Delete account */}

@@ -8,6 +8,8 @@ import MiniPlayer from '@/components/MiniPlayer';
 import { Keyboard } from '@capacitor/keyboard';
 import { Capacitor } from '@capacitor/core';
 import SplashScreen from '@/components/SplashScreen';
+import { fetchEntries } from '@/lib/entries';
+import { loadReminder, syncDailyReminders } from '@/lib/reminders';
 import BottomNav, { Tab } from '@/components/BottomNav';
 import { useKeyboardDismiss } from '@/hooks/useKeyboardDismiss';
 import PhoneEntry from '@/pages/auth/PhoneEntry';
@@ -34,6 +36,13 @@ const AppShell = () => {
   const [pendingPhone, setPendingPhone] = useState('');
   const [showWelcome, setShowWelcome] = useState(false);
   const prevUser = useRef(user);
+
+  // Top the rolling reminder window back up on launch, and drop any day that
+  // was logged since — on another device, or before the app was last closed.
+  useEffect(() => {
+    if (!user) return;
+    fetchEntries(user.id).then(entries => syncDailyReminders(loadReminder(), entries));
+  }, [user]);
 
   // Hide iOS keyboard accessory bar (up/down/done toolbar)
   useEffect(() => {
