@@ -10,7 +10,8 @@ import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
 import SplashScreen from '@/components/SplashScreen';
 import { fetchEntries } from '@/lib/entries';
-import { loadReminder, syncDailyReminders } from '@/lib/reminders';
+import { loadReminder, syncDailyReminders, syncQuoteNotifications } from '@/lib/reminders';
+import { refreshQuotes } from '@/lib/quotes';
 import BottomNav, { Tab } from '@/components/BottomNav';
 import { useKeyboardDismiss } from '@/hooks/useKeyboardDismiss';
 import PhoneEntry from '@/pages/auth/PhoneEntry';
@@ -46,8 +47,12 @@ const AppShell = () => {
   // next cold-start it". It also picks up days logged on another device.
   useEffect(() => {
     if (!user) return;
-    const resync = () =>
-      fetchEntries(user.id).then(entries => syncDailyReminders(loadReminder(), entries));
+    const resync = async () => {
+      const setting = loadReminder();
+      const [entries, quotes] = await Promise.all([fetchEntries(user.id), refreshQuotes()]);
+      await syncDailyReminders(setting, entries);
+      await syncQuoteNotifications(setting, quotes);
+    };
 
     resync();
 

@@ -8,8 +8,10 @@ import { useSwipeToDismiss } from '@/hooks/useSwipeToDismiss';
 import ImageCropper from '@/components/ImageCropper';
 import { fetchEntries } from '@/lib/entries';
 import {
-  ReminderSetting, loadReminder, saveReminder, syncDailyReminders, ensureReminderPermission,
+  ReminderSetting, loadReminder, saveReminder, syncDailyReminders,
+  syncQuoteNotifications, ensureReminderPermission,
 } from '@/lib/reminders';
+import { refreshQuotes } from '@/lib/quotes';
 
 interface Props {
   onClose: () => void;
@@ -134,6 +136,7 @@ const SettingsPage = ({ onClose }: Props) => {
     saveReminder(next);
     const entries = user ? await fetchEntries(user.id) : {};
     await syncDailyReminders(next, entries);
+    await syncQuoteNotifications(next, await refreshQuotes());
   };
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -354,6 +357,29 @@ const SettingsPage = ({ onClose }: Props) => {
               </div>
             </>
           )}
+
+          <div className="h-px bg-border mx-4" />
+
+          <div className="flex items-center justify-between px-4 py-3.5">
+            <div className="flex-1 min-w-0 pr-3">
+              <p className="text-sm text-foreground">Motivation</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                A couple of quotes at random times, 9am to 9pm.
+              </p>
+            </div>
+            <button
+              onPointerDown={e => { e.preventDefault(); applyReminder({ ...reminder, quotes: !reminder.quotes }); }}
+              className={`w-12 h-7 rounded-full flex-shrink-0 transition-colors relative ${
+                reminder.quotes ? 'bg-clean' : 'bg-muted'
+              }`}
+            >
+              <span
+                className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-all ${
+                  reminder.quotes ? 'left-6' : 'left-1'
+                }`}
+              />
+            </button>
+          </div>
 
           {reminderDenied && (
             <>
