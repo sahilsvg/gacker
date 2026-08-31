@@ -7,6 +7,7 @@ import { PlayerProvider } from '@/contexts/PlayerContext';
 import MiniPlayer from '@/components/MiniPlayer';
 import { Keyboard } from '@capacitor/keyboard';
 import { Capacitor } from '@capacitor/core';
+import { App } from '@capacitor/app';
 import SplashScreen from '@/components/SplashScreen';
 import { fetchEntries } from '@/lib/entries';
 import { loadReminder, syncDailyReminders } from '@/lib/reminders';
@@ -37,11 +38,24 @@ const AppShell = () => {
   const [showWelcome, setShowWelcome] = useState(false);
   const prevUser = useRef(user);
 
-  // Top the rolling reminder window back up on launch, and drop any day that
-  // was logged since — on another device, or before the app was last closed.
+  // Rebuild the rolling reminder window on launch and on every return to the
+  // foreground. Foreground matters as much as launch: the schedule is built
+  // from absolute instants, so after crossing a timezone the pending
+  // notifications are at the old local time until the next rebuild. Doing it
+  // here narrows that to "until you next open the app" rather than "until you
+  // next cold-start it". It also picks up days logged on another device.
   useEffect(() => {
     if (!user) return;
-    fetchEntries(user.id).then(entries => syncDailyReminders(loadReminder(), entries));
+    const resync = () =>
+      fetchEntries(user.id).then(entries => syncDailyReminders(loadReminder(), entries));
+
+    resync();
+
+    let remove: (() => void) | undefined;
+    App.addListener('appStateChange', ({ isActive }) => {
+      if (isActive) resync();
+    }).then(handle => { remove = () => handle.remove(); });
+    return () => { remove?.(); };
   }, [user]);
 
   // Hide iOS keyboard accessory bar (up/down/done toolbar)
