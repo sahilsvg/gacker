@@ -5,7 +5,6 @@ import { fetchEntries, computeStats, Entry } from '@/lib/entries';
 import { getFollowerCounts, getPendingRequests } from '@/lib/social';
 import { supabase } from '@/integrations/supabase/client';
 import ProfileTabs, { SubTab, SUB_TABS } from '@/components/ProfileTabs';
-import { useSubTabSwipe } from '@/hooks/useSubTabSwipe';
 import SettingsPage from '@/pages/SettingsPage';
 import FollowRequestsPage from '@/pages/FollowRequestsPage';
 import PullToRefresh from '@/components/PullToRefresh';
@@ -68,9 +67,6 @@ const ProfileTab = ({ isActive, resetKey }: Props) => {
     setView('user');
   };
 
-  // Must run before any early return: hooks have to be called in the same order
-  // on every render, and the branch below skips the rest of the component.
-  const subTabSwipe = useSubTabSwipe(SUB_TABS, subTab, setSubTab);
 
   if (view === 'user' && selectedUserId) {
     return <UserProfile userId={selectedUserId} onBack={() => setView('profile')} />;
@@ -80,7 +76,7 @@ const ProfileTab = ({ isActive, resetKey }: Props) => {
     <>
       <div className="flex flex-col h-full tab-bar-padding">
         <PullToRefresh onRefresh={() => load(true)}>
-          <div className="px-5 pt-6 pb-6" {...subTabSwipe}>
+          <div className="px-5 pt-6 pb-6">
 
             {/* Profile header */}
             <div className="flex items-center gap-4 mb-6">

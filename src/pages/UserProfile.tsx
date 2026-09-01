@@ -4,7 +4,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getUserProfile, getFollowStatus, FollowStatus, followUser, unfollowUser, getFollowerCounts } from '@/lib/social';
 import { fetchEntries, computeStats, Entry } from '@/lib/entries';
 import ProfileTabs, { SubTab, SUB_TABS } from '@/components/ProfileTabs';
-import { useSubTabSwipe } from '@/hooks/useSubTabSwipe';
 import FollowListSheet from '@/components/FollowListSheet';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -72,7 +71,6 @@ const UserProfile = ({ userId, onBack }: Props) => {
     setFollowSheet(null);
   };
 
-  const subTabSwipe = useSubTabSwipe(SUB_TABS, subTab, setSubTab);
 
   return (
     <div className="flex flex-col h-full tab-bar-padding animate-slide-in-right">
@@ -83,7 +81,7 @@ const UserProfile = ({ userId, onBack }: Props) => {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 pb-6" {...subTabSwipe}>
+      <div className="flex-1 overflow-y-auto px-5 pb-6">
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <span className="text-muted-foreground text-sm">Loading…</span>

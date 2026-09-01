@@ -6,6 +6,7 @@ import { getLikedSongs, toggleLikedSong, onLikeChange } from '@/lib/likedSongs';
 import { haptic } from '@/lib/haptics';
 import { useTapList } from '@/hooks/useTap';
 import { Goal, getGoalHistory } from '@/lib/goals';
+import SwipeDeck from './SwipeDeck';
 import CalendarView from './CalendarView';
 import EntryDetailSheet from './EntryDetailSheet';
 
@@ -91,49 +92,14 @@ const ProfileTabs = ({ entries, profileUserId, subTab, onSubTabChange, currentUs
     { id: 'goals', label: 'Goals', Icon: Target },
   ];
 
-  return (
-    <>
-      {/* Tab bar — underline indicator, no labels */}
-      <div className="flex border-b border-border mb-6">
-        {TABS.map(t => {
-          const active = subTab === t.id;
-          return (
-            <button
-              key={t.id}
-              aria-label={t.label}
-              aria-selected={active}
-              role="tab"
-              onPointerDown={e => { e.preventDefault(); setSubTab(t.id); }}
-              // -mb-px pulls the indicator onto the container's border so the
-              // active underline replaces it rather than sitting above it.
-              className={`flex-1 h-12 -mb-px flex items-center justify-center border-b-2 transition-colors ${
-                active
-                  ? 'border-foreground text-foreground'
-                  : 'border-transparent text-muted-foreground/50'
-              }`}
-            >
-              <t.Icon size={20} strokeWidth={active ? 2.4 : 2} />
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Locked state */}
-      {!canSeeContent ? (
-        <div className="bg-card border border-border rounded-2xl p-6 text-center">
-          <p className="text-muted-foreground text-sm">{lockedMessage ?? 'Follow to see content.'}</p>
-        </div>
-      ) : (
-        // Re-keyed on subTab so the content animates in on every change,
-        // whether the tab was tapped or swiped to.
-        <div key={subTab} className="animate-tab-enter">
-          {/* HISTORY */}
-          {subTab === 'history' && (
+  const renderPanel = (tab: SubTab) => {
+    if (tab === 'history') return (
+          (
             <CalendarView entries={entries} onDayTap={(dateKey, entry) => setEntryDetail({ dateKey, entry })} />
-          )}
-
-          {/* IMAGES */}
-          {subTab === 'images' && (
+          )
+    );
+    if (tab === 'images') return (
+          (
             imagePosts.length === 0 ? (
               <p className="text-muted-foreground text-sm text-center py-10">No images posted yet.</p>
             ) : (
@@ -153,10 +119,10 @@ const ProfileTabs = ({ entries, profileUserId, subTab, onSubTabChange, currentUs
                 ))}
               </div>
             )
-          )}
-
-          {/* MUSIC */}
-          {subTab === 'music' && (
+          )
+    );
+    if (tab === 'music') return (
+          (
             musicPosts.length === 0 ? (
               <p className="text-muted-foreground text-sm text-center py-10">No songs logged yet.</p>
             ) : (
@@ -227,8 +193,10 @@ const ProfileTabs = ({ entries, profileUserId, subTab, onSubTabChange, currentUs
                 })}
               </div>
             )
-          )}
-          {subTab === 'goals' && (() => {
+          )
+    );
+    if (tab === 'goals') return (
+(() => {
             const activeGoal = goals?.find(g => g.status === 'active') ?? null;
             // Abandoned goals are just the residue of changing your mind, so
             // history shows what was actually finished, plus what's in flight.
@@ -285,8 +253,56 @@ const ProfileTabs = ({ entries, profileUserId, subTab, onSubTabChange, currentUs
                 ))}
               </div>
             );
-          })()}
+          })()
+    );
+    return null;
+  };
+
+  return (
+    <>
+      {/* Tab bar — underline indicator, no labels */}
+      <div className="flex border-b border-border mb-6">
+        {TABS.map(t => {
+          const active = subTab === t.id;
+          return (
+            <button
+              key={t.id}
+              aria-label={t.label}
+              aria-selected={active}
+              role="tab"
+              onPointerDown={e => { e.preventDefault(); setSubTab(t.id); }}
+              // -mb-px pulls the indicator onto the container's border so the
+              // active underline replaces it rather than sitting above it.
+              className={`flex-1 h-12 -mb-px flex items-center justify-center border-b-2 transition-colors ${
+                active
+                  ? 'border-foreground text-foreground'
+                  : 'border-transparent text-muted-foreground/50'
+              }`}
+            >
+              <t.Icon size={20} strokeWidth={active ? 2.4 : 2} />
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Locked state */}
+      {!canSeeContent ? (
+        <div className="bg-card border border-border rounded-2xl p-6 text-center">
+          <p className="text-muted-foreground text-sm">{lockedMessage ?? 'Follow to see content.'}</p>
         </div>
+      ) : (
+        // Re-keyed on subTab so the content animates in on every change,
+        // whether the tab was tapped or swiped to.
+        <SwipeDeck
+          tabs={SUB_TABS}
+          current={subTab}
+          onChange={setSubTab}
+          // The calendar owns horizontal gestures for its own month swipe, so
+          // History does not participate — swiping there felt like a fight
+          // between two things wanting the same drag.
+          enabled={subTab !== 'history'}
+          renderPanel={renderPanel}
+        />
       )}
 
       {entryDetail && (
