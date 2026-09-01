@@ -4,7 +4,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { fetchEntries, computeStats, Entry } from '@/lib/entries';
 import { getFollowerCounts, getPendingRequests } from '@/lib/social';
 import { supabase } from '@/integrations/supabase/client';
-import ProfileTabs from '@/components/ProfileTabs';
+import ProfileTabs, { SubTab, SUB_TABS } from '@/components/ProfileTabs';
+import { useSubTabSwipe } from '@/hooks/useSubTabSwipe';
 import SettingsPage from '@/pages/SettingsPage';
 import FollowRequestsPage from '@/pages/FollowRequestsPage';
 import PullToRefresh from '@/components/PullToRefresh';
@@ -21,6 +22,7 @@ type View = 'profile' | 'user';
 const ProfileTab = ({ isActive, resetKey }: Props) => {
   const { user, profile } = useAuth();
   const [entries, setEntries] = useState<Record<string, Entry>>({});
+  const [subTab, setSubTab] = useState<SubTab>('history');
   const [counts, setCounts] = useState({ followers: 0, following: 0 });
   const [pendingCount, setPendingCount] = useState(0);
   const [goal, setGoal] = useState<number | null>(null);
@@ -70,11 +72,13 @@ const ProfileTab = ({ isActive, resetKey }: Props) => {
     return <UserProfile userId={selectedUserId} onBack={() => setView('profile')} />;
   }
 
+  const subTabSwipe = useSubTabSwipe(SUB_TABS, subTab, setSubTab);
+
   return (
     <>
       <div className="flex flex-col h-full tab-bar-padding">
         <PullToRefresh onRefresh={() => load(true)}>
-          <div className="px-5 pt-6 pb-6">
+          <div className="px-5 pt-6 pb-6" {...subTabSwipe}>
 
             {/* Profile header */}
             <div className="flex items-center gap-4 mb-6">
@@ -157,6 +161,8 @@ const ProfileTab = ({ isActive, resetKey }: Props) => {
               <ProfileTabs
                 entries={entries}
                 profileUserId={user.id}
+                subTab={subTab}
+                onSubTabChange={setSubTab}
                 currentUserId={user.id}
                 canSeeContent={true}
               />

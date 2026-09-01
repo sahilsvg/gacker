@@ -206,7 +206,15 @@ const CalendarView = ({ entries, onDayTap }: Props) => {
   // scroll before the 6px axis threshold is reached, while leaving normal
   // vertical scrolling over the calendar intact.
   return (
-    <div ref={wrapperRef} className="overflow-hidden" style={{ touchAction: 'pan-y' }}>
+    <div
+      ref={wrapperRef}
+      // Claims horizontal gestures: the profile's swipe-between-tabs defers to
+      // any element marked this way, so swiping the calendar changes months
+      // rather than tabs.
+      data-swipe-owner="calendar"
+      className="overflow-hidden"
+      style={{ touchAction: 'pan-y' }}
+    >
       <div
         ref={trackRef}
         style={{ display: 'flex', width: '300%', willChange: 'transform' }}

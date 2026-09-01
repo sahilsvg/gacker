@@ -3,7 +3,8 @@ import { ArrowLeft, UserPlus, UserCheck, Clock } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserProfile, getFollowStatus, FollowStatus, followUser, unfollowUser, getFollowerCounts } from '@/lib/social';
 import { fetchEntries, computeStats, Entry } from '@/lib/entries';
-import ProfileTabs from '@/components/ProfileTabs';
+import ProfileTabs, { SubTab, SUB_TABS } from '@/components/ProfileTabs';
+import { useSubTabSwipe } from '@/hooks/useSubTabSwipe';
 import FollowListSheet from '@/components/FollowListSheet';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -16,6 +17,7 @@ const UserProfile = ({ userId, onBack }: Props) => {
   const { user } = useAuth();
   const isOwnProfile = user?.id === userId;
   const [profile, setProfile] = useState<{ id: string; name: string; handle: string; avatar_url: string | null } | null>(null);
+  const [subTab, setSubTab] = useState<SubTab>('history');
   const [entries, setEntries] = useState<Record<string, Entry>>({});
   const [followStatus, setFollowStatus] = useState<FollowStatus>('none');
   const [counts, setCounts] = useState({ followers: 0, following: 0 });
@@ -70,6 +72,8 @@ const UserProfile = ({ userId, onBack }: Props) => {
     setFollowSheet(null);
   };
 
+  const subTabSwipe = useSubTabSwipe(SUB_TABS, subTab, setSubTab);
+
   return (
     <div className="flex flex-col h-full tab-bar-padding animate-slide-in-right">
       {/* Nav */}
@@ -79,7 +83,7 @@ const UserProfile = ({ userId, onBack }: Props) => {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 pb-6">
+      <div className="flex-1 overflow-y-auto px-5 pb-6" {...subTabSwipe}>
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <span className="text-muted-foreground text-sm">Loading…</span>
@@ -162,6 +166,8 @@ const UserProfile = ({ userId, onBack }: Props) => {
               <ProfileTabs
                 entries={entries}
                 profileUserId={userId}
+                subTab={subTab}
+                onSubTabChange={setSubTab}
                 currentUserId={user.id}
                 canSeeContent={canSeeContent}
                 lockedMessage={

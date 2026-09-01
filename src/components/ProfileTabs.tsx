@@ -9,22 +9,24 @@ import { Goal, getGoalHistory } from '@/lib/goals';
 import CalendarView from './CalendarView';
 import EntryDetailSheet from './EntryDetailSheet';
 
-type SubTab = 'history' | 'images' | 'music' | 'goals';
+export type SubTab = 'history' | 'images' | 'music' | 'goals';
+export const SUB_TABS: readonly SubTab[] = ['history', 'images', 'music', 'goals'];
 
 interface Props {
   entries: Record<string, Entry>;
   profileUserId: string;       // whose profile this is (for the Goals tab)
+  subTab: SubTab;
+  onSubTabChange: (t: SubTab) => void;
   currentUserId: string;       // logged-in user (for like buttons)
   canSeeContent: boolean;      // own profile or accepted follower
   lockedMessage?: string;      // shown when !canSeeContent
 }
 
-const ProfileTabs = ({ entries, profileUserId, currentUserId, canSeeContent, lockedMessage }: Props) => {
-  const [subTab, setSubTab] = useState<SubTab>('history');
+const ProfileTabs = ({ entries, profileUserId, subTab, onSubTabChange, currentUserId, canSeeContent, lockedMessage }: Props) => {
+  const setSubTab = onSubTabChange;
   const [entryDetail, setEntryDetail] = useState<{ dateKey: string; entry: Entry } | null>(null);
   const [likedUrls, setLikedUrls] = useState<Set<string>>(new Set());
   const [goals, setGoals] = useState<Goal[] | null>(null);
-  const { play, stop, currentSong, isPlaying } = usePlayer();
 
   // Goal history is only fetched when the tab is opened — most visits never do.
   useEffect(() => {
@@ -121,7 +123,9 @@ const ProfileTabs = ({ entries, profileUserId, currentUserId, canSeeContent, loc
           <p className="text-muted-foreground text-sm">{lockedMessage ?? 'Follow to see content.'}</p>
         </div>
       ) : (
-        <>
+        // Re-keyed on subTab so the content animates in on every change,
+        // whether the tab was tapped or swiped to.
+        <div key={subTab} className="animate-tab-enter">
           {/* HISTORY */}
           {subTab === 'history' && (
             <CalendarView entries={entries} onDayTap={(dateKey, entry) => setEntryDetail({ dateKey, entry })} />
@@ -281,7 +285,7 @@ const ProfileTabs = ({ entries, profileUserId, currentUserId, canSeeContent, loc
               </div>
             );
           })()}
-        </>
+        </div>
       )}
 
       {entryDetail && (
