@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Pause, Heart, Music, Target } from 'lucide-react';
+import { Pause, Heart, Music, Target, CalendarDays, Grid3x3, LucideIcon } from 'lucide-react';
 import { Entry, computeStats } from '@/lib/entries';
 import { usePlayer } from '@/contexts/PlayerContext';
 import { getLikedSongs, toggleLikedSong, onLikeChange } from '@/lib/likedSongs';
@@ -79,28 +79,40 @@ const ProfileTabs = ({ entries, profileUserId, currentUserId, canSeeContent, loc
     );
   }, [currentUserId, likedUrls]);
 
-  const TABS: { id: SubTab; label: string }[] = [
-    { id: 'history', label: 'History' },
-    { id: 'images', label: 'Images' },
-    { id: 'music', label: 'Music' },
-    { id: 'goals', label: 'Goals' },
+  // Icons rather than labels, Instagram-style. label is kept for aria-label so
+  // the tabs are still announced to VoiceOver.
+  const TABS: { id: SubTab; label: string; Icon: LucideIcon }[] = [
+    { id: 'history', label: 'History', Icon: CalendarDays },
+    { id: 'images', label: 'Images', Icon: Grid3x3 },
+    { id: 'music', label: 'Music', Icon: Music },
+    { id: 'goals', label: 'Goals', Icon: Target },
   ];
 
   return (
     <>
-      {/* Tab slider */}
-      <div className="flex bg-card border border-border rounded-2xl p-1 mb-6">
-        {TABS.map(t => (
-          <button
-            key={t.id}
-            onPointerDown={e => { e.preventDefault(); setSubTab(t.id); }}
-            className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${
-              subTab === t.id ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+      {/* Tab bar — underline indicator, no labels */}
+      <div className="flex border-b border-border mb-6">
+        {TABS.map(t => {
+          const active = subTab === t.id;
+          return (
+            <button
+              key={t.id}
+              aria-label={t.label}
+              aria-selected={active}
+              role="tab"
+              onPointerDown={e => { e.preventDefault(); setSubTab(t.id); }}
+              // -mb-px pulls the indicator onto the container's border so the
+              // active underline replaces it rather than sitting above it.
+              className={`flex-1 h-12 -mb-px flex items-center justify-center border-b-2 transition-colors ${
+                active
+                  ? 'border-foreground text-foreground'
+                  : 'border-transparent text-muted-foreground/50'
+              }`}
+            >
+              <t.Icon size={20} strokeWidth={active ? 2.4 : 2} />
+            </button>
+          );
+        })}
       </div>
 
       {/* Locked state */}
