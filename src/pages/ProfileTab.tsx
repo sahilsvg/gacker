@@ -68,11 +68,13 @@ const ProfileTab = ({ isActive, resetKey }: Props) => {
     setView('user');
   };
 
+  // Must run before any early return: hooks have to be called in the same order
+  // on every render, and the branch below skips the rest of the component.
+  const subTabSwipe = useSubTabSwipe(SUB_TABS, subTab, setSubTab);
+
   if (view === 'user' && selectedUserId) {
     return <UserProfile userId={selectedUserId} onBack={() => setView('profile')} />;
   }
-
-  const subTabSwipe = useSubTabSwipe(SUB_TABS, subTab, setSubTab);
 
   return (
     <>
