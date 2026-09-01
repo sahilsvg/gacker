@@ -27,6 +27,7 @@ const ProfileTabs = ({ entries, profileUserId, subTab, onSubTabChange, currentUs
   const [entryDetail, setEntryDetail] = useState<{ dateKey: string; entry: Entry } | null>(null);
   const [likedUrls, setLikedUrls] = useState<Set<string>>(new Set());
   const [goals, setGoals] = useState<Goal[] | null>(null);
+  const { play, stop, currentSong, isPlaying } = usePlayer();
 
   // Goal history is only fetched when the tab is opened — most visits never do.
   useEffect(() => {
