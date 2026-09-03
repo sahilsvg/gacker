@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { Target, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchEntries, computeStats, Entry } from '@/lib/entries';
+import { fetchEntries, computeStats, computeMonthlyStats, Entry } from '@/lib/entries';
+import { FireRateChart, GoonsPerMonthChart } from '@/components/MonthlyCharts';
 import { supabase } from '@/integrations/supabase/client';
 import { haptic } from '@/lib/haptics';
 import { useTap } from '@/hooks/useTap';
@@ -341,6 +342,7 @@ const GanalyticsTab = ({ resetKey: _, isActive }: { resetKey: number; isActive?:
   const { streak, cleanDays, redDays } = computeStats(entries);
   const total = cleanDays + redDays;
   const fireRate = total > 0 ? Math.round((redDays / total) * 100) : 0;
+  const monthlyStats = computeMonthlyStats(entries);
 
   const handleSaveGoal = async (days: number) => {
     if (!user) return;
@@ -469,6 +471,15 @@ const GanalyticsTab = ({ resetKey: _, isActive }: { resetKey: number; isActive?:
                   style={{ width: `${(cleanDays / total) * 100}%` }}
                 />
               </div>
+            </div>
+          )}
+
+          {/* Two trend charts, only once there is more than one month of
+              history to actually show a trend. */}
+          {monthlyStats.length > 1 && (
+            <div className="space-y-4 mt-6">
+              <FireRateChart data={monthlyStats} />
+              <GoonsPerMonthChart data={monthlyStats} />
             </div>
           )}
 

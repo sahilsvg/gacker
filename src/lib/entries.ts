@@ -100,3 +100,64 @@ export const computeStats = (entries: Record<string, Entry>) => {
 
   return { streak, cleanDays, redDays };
 };
+
+export interface MonthlyStats {
+  /** "2026-08" */
+  month: string;
+  /** "Aug '26", for chart axes */
+  label: string;
+  cleanDays: number;
+  redDays: number;
+  /** Percentage, same formula as computeStats' fireRate. null when nothing
+   *  was logged that month, so the chart can show a gap instead of a false 0. */
+  fireRate: number | null;
+}
+
+/**
+ * Entries bucketed by calendar month, one point per month from the first
+ * entry through today -- including months with nothing logged, so a chart
+ * reads as a continuous timeline rather than skipping gaps.
+ */
+export const computeMonthlyStats = (entries: Record<string, Entry>): MonthlyStats[] => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const byMonth = new Map<string, { clean: number; red: number }>();
+  let earliest: string | null = null;
+
+  for (const key of Object.keys(entries)) {
+    const [y, m, d] = key.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    if (date > today) continue;
+
+    const monthKey = key.slice(0, 7); // "YYYY-MM"
+    if (!earliest || monthKey < earliest) earliest = monthKey;
+
+    const bucket = byMonth.get(monthKey) ?? { clean: 0, red: 0 };
+    if (entries[key].clean) bucket.clean++; else bucket.red++;
+    byMonth.set(monthKey, bucket);
+  }
+
+  if (!earliest) return [];
+
+  const [startY, startM] = earliest.split('-').map(Number);
+  const months: MonthlyStats[] = [];
+  const cursor = new Date(startY, startM - 1, 1);
+  const end = new Date(today.getFullYear(), today.getMonth(), 1);
+
+  while (cursor <= end) {
+    const monthKey = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`;
+    const bucket = byMonth.get(monthKey);
+    const total = (bucket?.clean ?? 0) + (bucket?.red ?? 0);
+    months.push({
+      month: monthKey,
+      label: cursor.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }).replace(' ', " '"),
+      cleanDays: bucket?.clean ?? 0,
+      redDays: bucket?.red ?? 0,
+      fireRate: total > 0 ? Math.round((bucket!.red / total) * 1000) / 10 : null,
+    });
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+
+  return months;
+};
