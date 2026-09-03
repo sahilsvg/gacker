@@ -223,7 +223,7 @@ const FeedCard = ({ item, onProfileTap, onUpdate, isTabActive, openComments = fa
 
         {/* Notes */}
         {item.notes && (
-          <p className="text-sm text-foreground/80 leading-relaxed mb-3">
+          <p className="text-sm text-foreground/80 leading-relaxed mb-3 font-sf-pro">
             {item.notes.split(/(@[a-zA-Z0-9_]+)/g).map((part, i) =>
               part.startsWith('@')
                 ? <span key={i} className="text-clean font-medium">{part}</span>

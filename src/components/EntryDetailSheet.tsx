@@ -112,7 +112,7 @@ const EntryDetailSheet = ({ dateKey, entry, onClose }: Props) => {
           {entry.notes ? (
             <div>
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Notes</p>
-              <p className="text-sm text-foreground/90 leading-relaxed">{entry.notes}</p>
+              <p className="text-sm text-foreground/90 leading-relaxed font-sf-pro">{entry.notes}</p>
             </div>
           ) : (
             !entry.song_name && <p className="text-sm text-muted-foreground italic">No notes recorded.</p>

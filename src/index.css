@@ -93,7 +93,7 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+    font-family: 'SF Mono', ui-monospace, Menlo, monospace;
     -webkit-font-smoothing: antialiased;
     padding-top: env(safe-area-inset-top);
   }
@@ -105,6 +105,12 @@
 
 .font-mono-stats {
   font-family: 'Oswald', sans-serif;
+}
+
+/* SF Pro is Apple's system font, no webfont fetch needed on iOS. Used for
+   profile bios and daily log notes, which sit against the SF Mono body text. */
+.font-sf-pro {
+  font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
 }
 
 /* Splash */

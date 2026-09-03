@@ -122,7 +122,7 @@ const UserProfile = ({ userId, onBack }: Props) => {
 
             {/* Bio */}
             {profile?.bio && (
-              <p className="text-sm text-foreground/80 mb-4 -mt-2">{profile.bio}</p>
+              <p className="text-sm text-foreground/80 mb-4 -mt-2 font-sf-pro">{profile.bio}</p>
             )}
 
             {/* Follower counts — tappable only if accepted or own profile */}
