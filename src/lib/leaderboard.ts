@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { formatDateKey } from '@/lib/entries';
 
 export interface LeaderboardEntry {
   user_id: string;
@@ -22,11 +23,21 @@ type LeaderboardRow = Omit<LeaderboardEntry, 'rank'>;
 // around that without changing what is sent over the wire -- unlike pulling
 // `rpc` out into its own const, this keeps it a method call on `supabase`,
 // so `this` inside the client is still bound correctly.
-type RpcClient = { rpc: (fn: string) => Promise<{ data: LeaderboardRow[] | null; error: { message: string } | null }> };
+type RpcClient = {
+  rpc: (
+    fn: string,
+    args?: Record<string, unknown>,
+  ) => Promise<{ data: LeaderboardRow[] | null; error: { message: string } | null }>;
+};
 
 export const getLeaderboard = async (): Promise<LeaderboardEntry[]> => {
   try {
-    const { data, error } = await (supabase as unknown as RpcClient).rpc('get_fire_rate_leaderboard');
+    // The ranking's day-boundary is the viewer's own local midnight, same as
+    // every other date in this app (streak, calendar, reminders) -- not the
+    // database server's UTC clock, which can disagree by several hours.
+    const { data, error } = await (supabase as unknown as RpcClient).rpc('get_fire_rate_leaderboard', {
+      viewer_today: formatDateKey(new Date()),
+    });
     if (error) {
       console.warn('[leaderboard] fetch failed:', error.message);
       return [];
