@@ -57,7 +57,7 @@ export const FireRateChart = ({ data }: { data: CumulativeFireRatePoint[] }) => 
   const tickInterval = Math.max(0, Math.ceil(data.length / 6) - 1);
 
   return (
-    <ChartCard title="Fire Rate Over Time" subtitle="Your overall fire rate, as it stood on each day">
+    <ChartCard title="Fire Rate Over Time" subtitle="The progress of your daily fire rate.">
       <ResponsiveContainer>
         <LineChart data={data} margin={{ top: 4, right: 8, left: 4, bottom: 0 }}>
           <CartesianGrid vertical={false} stroke={BORDER} strokeDasharray="3 3" />
