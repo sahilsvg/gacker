@@ -177,8 +177,10 @@ const CommentsSheet = ({ entryId, kind = 'entry', entryOwnerId, onClose, onProfi
               <span className="text-[10px] text-muted-foreground/50">· {timeAgo(c.created_at)}</span>
             </div>
 
-            {/* Body with highlighted @mentions */}
-            <p className="text-sm text-foreground/90 leading-relaxed">
+            {/* Body with highlighted @mentions. SF Pro like bios and daily
+                log notes -- comment text sits against SF Mono UI chrome the
+                same way those do. */}
+            <p className="text-sm text-foreground/90 leading-relaxed font-sf-pro">
               {c.body.split(/(@[a-zA-Z0-9_]+)/g).map((part, i) =>
                 part.startsWith('@')
                   ? <span key={i} className="text-clean font-medium">{part}</span>
@@ -304,7 +306,7 @@ const CommentsSheet = ({ entryId, kind = 'entry', entryOwnerId, onClose, onProfi
             onKeyDown={dismissOnEnter(handlePost)}
             placeholder={replyingTo ? `Reply to @${replyingTo.handle}…` : 'Add a comment…'}
             maxLength={500}
-            className="flex-1 bg-background border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
+            className="flex-1 bg-background border border-border rounded-xl px-4 py-2.5 text-sm text-foreground font-sf-pro focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
           />
           <button
             data-keep-keyboard
