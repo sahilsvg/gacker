@@ -2,9 +2,10 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Settings, UserPlus } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchEntries, computeStats, Entry } from '@/lib/entries';
-import { getFollowerCounts, getPendingRequests } from '@/lib/social';
+import { getFollowerCounts, getPendingRequests, getSignupRank } from '@/lib/social';
 import { supabase } from '@/integrations/supabase/client';
 import ProfileTabs, { SubTab, SUB_TABS } from '@/components/ProfileTabs';
+import { FounderBadge, ChiefGackerLabel } from '@/components/FounderBadge';
 import SettingsPage from '@/pages/SettingsPage';
 import FollowRequestsPage from '@/pages/FollowRequestsPage';
 import PullToRefresh from '@/components/PullToRefresh';
@@ -25,6 +26,7 @@ const ProfileTab = ({ isActive, resetKey }: Props) => {
   const [counts, setCounts] = useState({ followers: 0, following: 0 });
   const [pendingCount, setPendingCount] = useState(0);
   const [goal, setGoal] = useState<number | null>(null);
+  const [founderRank, setFounderRank] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [showRequests, setShowRequests] = useState(false);
@@ -34,16 +36,18 @@ const ProfileTab = ({ isActive, resetKey }: Props) => {
   const load = useCallback(async (silent = false) => {
     if (!user) return;
     if (!silent) setLoading(true);
-    const [ents, c, reqs, profileRes] = await Promise.all([
+    const [ents, c, reqs, profileRes, rank] = await Promise.all([
       fetchEntries(user.id),
       getFollowerCounts(user.id),
       getPendingRequests(user.id),
       supabase.from('profiles').select('clean_day_goal').eq('id', user.id).maybeSingle(),
+      getSignupRank(user.id),
     ]);
     setEntries(ents);
     setCounts(c);
     setPendingCount(reqs.length);
     setGoal(profileRes.data?.clean_day_goal ?? null);
+    setFounderRank(rank);
     setLoading(false);
   }, [user]);
 
@@ -90,7 +94,11 @@ const ProfileTab = ({ isActive, resetKey }: Props) => {
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <h2 className="font-semibold text-foreground text-lg leading-tight truncate">{profile?.name ?? '—'}</h2>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <h2 className="font-semibold text-foreground text-lg leading-tight truncate">{profile?.name ?? '—'}</h2>
+                  <FounderBadge rank={founderRank} />
+                </div>
+                <ChiefGackerLabel rank={founderRank} />
                 <p className="text-sm text-muted-foreground">@{profile?.handle ?? '—'}</p>
               </div>
               <div className="flex items-center gap-2">

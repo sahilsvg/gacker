@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, UserPlus, UserCheck, Clock } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getUserProfile, getFollowStatus, FollowStatus, followUser, unfollowUser, getFollowerCounts } from '@/lib/social';
+import { getUserProfile, getFollowStatus, FollowStatus, followUser, unfollowUser, getFollowerCounts, getSignupRank } from '@/lib/social';
 import { fetchEntries, computeStats, Entry } from '@/lib/entries';
 import ProfileTabs, { SubTab, SUB_TABS } from '@/components/ProfileTabs';
 import FollowListSheet from '@/components/FollowListSheet';
+import { FounderBadge, ChiefGackerLabel } from '@/components/FounderBadge';
 import { supabase } from '@/integrations/supabase/client';
 
 interface Props {
@@ -21,6 +22,7 @@ const UserProfile = ({ userId, onBack }: Props) => {
   const [followStatus, setFollowStatus] = useState<FollowStatus>('none');
   const [counts, setCounts] = useState({ followers: 0, following: 0 });
   const [goal, setGoal] = useState<number | null>(null);
+  const [founderRank, setFounderRank] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [followSheet, setFollowSheet] = useState<'followers' | 'following' | null>(null);
 
@@ -34,12 +36,14 @@ const UserProfile = ({ userId, onBack }: Props) => {
       getFollowStatus(user.id, userId),
       getFollowerCounts(userId),
       supabase.from('profiles').select('clean_day_goal').eq('id', userId).maybeSingle(),
-    ]).then(([prof, ents, status, c, profileRes]) => {
+      getSignupRank(userId),
+    ]).then(([prof, ents, status, c, profileRes, rank]) => {
       setProfile(prof);
       setEntries(ents);
       setFollowStatus(status);
       setCounts(c);
       setGoal((profileRes as any).data?.clean_day_goal ?? null);
+      setFounderRank(rank);
       setLoading(false);
     });
   }, [userId, user]);
@@ -99,7 +103,11 @@ const UserProfile = ({ userId, onBack }: Props) => {
                 }
               </div>
               <div className="flex-1 min-w-0">
-                <h2 className="font-semibold text-foreground text-lg leading-tight truncate">{profile?.name}</h2>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <h2 className="font-semibold text-foreground text-lg leading-tight truncate">{profile?.name}</h2>
+                  <FounderBadge rank={founderRank} />
+                </div>
+                <ChiefGackerLabel rank={founderRank} />
                 <p className="text-sm text-muted-foreground">@{profile?.handle}</p>
               </div>
               {!isOwnProfile && (

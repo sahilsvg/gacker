@@ -505,6 +505,21 @@ export const getUserProfile = async (userId: string) => {
   return data;
 };
 
+// 1-based signup order for whoever was among the first 20 accounts ever
+// created, null for everyone after -- the badge only means something as a
+// small, fixed founding cohort. profiles.created_at is set once at insert
+// (ProfileSetup never writes it explicitly) so it's a stable signup
+// timestamp, not something a later profile edit can shift.
+export const getSignupRank = async (userId: string): Promise<number | null> => {
+  const { data } = await supabase
+    .from('profiles')
+    .select('id')
+    .order('created_at', { ascending: true })
+    .limit(20);
+  const index = (data ?? []).findIndex(row => row.id === userId);
+  return index === -1 ? null : index + 1;
+};
+
 export const getFollowerList = async (userId: string): Promise<SearchProfile[]> => {
   const { data } = await supabase.from('follows').select('follower_id').eq('following_id', userId).eq('status', 'accepted');
   if (!data || data.length === 0) return [];
