@@ -52,8 +52,8 @@ const GoalPicker = ({ current, min, onSave, onClose }: {
     <div className="fixed inset-0 z-[300] flex flex-col items-center justify-end">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onPointerDown={handleClose} />
       <div
-        className={`relative w-full bg-card rounded-t-3xl px-6 pt-5 pb-10 flex flex-col items-center gap-6 ${isClosing ? 'animate-slide-down' : 'animate-slide-up'}`}
-        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 24px)' }}
+        className={`relative w-full bg-card rounded-t-3xl px-6 pt-5 flex flex-col items-center gap-6 ${isClosing ? 'animate-slide-down' : 'animate-slide-up'}`}
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <div className="w-10 h-1 rounded-full bg-border" />
         <div className="flex items-center justify-between w-full">
