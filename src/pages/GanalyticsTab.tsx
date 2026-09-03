@@ -62,7 +62,7 @@ const GoalPicker = ({ current, min, onSave, onClose }: {
             <X size={18} />
           </button>
         </div>
-        <p className="text-muted-foreground text-sm -mt-3 w-full">How many days in a row are you aiming for?</p>
+        <p className="text-muted-foreground text-sm -mt-3 w-full">How many days in a row are you shooting for?</p>
         <div className="relative w-full" style={{ height: ITEM_H * 5 }}>
           <div
             className="absolute left-0 right-0 rounded-2xl bg-clean/10 border border-clean/20 pointer-events-none z-10"
@@ -93,7 +93,7 @@ const GoalPicker = ({ current, min, onSave, onClose }: {
           {...saveTap.props}
           className="w-full h-14 rounded-2xl bg-clean text-clean-foreground font-semibold text-base active:scale-95 transition-all"
         >
-          Set Goal — {selected} {selected === 1 ? 'day' : 'days'}
+          Lock it in.
         </button>
       </div>
     </div>
