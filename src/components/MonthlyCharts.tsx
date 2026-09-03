@@ -39,29 +39,17 @@ const ChartCard = ({ title, subtitle, children }: { title: string; subtitle: str
       <p className="text-sm font-semibold text-foreground">{title}</p>
       <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
     </div>
-    <div style={{ width: '100%', height: 180 }}>{children}</div>
+    {/* touch-action: pan-y is the axis lock: recharts tracks touch itself to
+        move the tooltip as a finger drags across the chart, but nothing was
+        stopping the page's own vertical scroll from also engaging on the same
+        drag. pan-y tells iOS only vertical panning is native here, so a
+        mostly-horizontal drag never reaches the scrollable page behind it --
+        same mechanism as the calendar's month swipe and the profile tab
+        deck, just CSS-only here since nothing needs to be dragged/panned by
+        hand, only kept from fighting the chart's own touch tracking. */}
+    <div style={{ width: '100%', height: 180, touchAction: 'pan-y' }}>{children}</div>
   </div>
 );
-
-// Only the days actually logged get a dot; the days in between are still real
-// points (carrying the running value forward), but marking every one of them
-// would turn a several-month history into a solid row of dots. The gap
-// between two dots is exactly the flat stretch a skipped run of days produces.
-//
-// recharts' dot render prop must return a real SVG element, not null -- an
-// invisible circle (r=0) rather than an empty Fragment satisfies that.
-interface DotRenderProps {
-  cx?: number;
-  cy?: number;
-  payload?: { hasEntry: boolean };
-}
-
-const EntryDot = ({ cx, cy, payload }: DotRenderProps) => {
-  if (!payload?.hasEntry || cx === undefined || cy === undefined) {
-    return <circle cx={cx ?? 0} cy={cy ?? 0} r={0} fill="none" />;
-  }
-  return <circle cx={cx} cy={cy} r={3} fill={RED} />;
-};
 
 export const FireRateChart = ({ data }: { data: CumulativeFireRatePoint[] }) => {
   // Thin the axis labels to roughly six regardless of how many days are in
@@ -82,8 +70,11 @@ export const FireRateChart = ({ data }: { data: CumulativeFireRatePoint[] }) => 
           <Tooltip content={<ChartTooltip suffix="%" />} cursor={{ stroke: BORDER }} />
           {/* Every point has a real value now (today's running rate carried
               through gap days), so the line is always continuous -- nothing to
-              connectNulls across. */}
-          <Line type="monotone" dataKey="fireRate" stroke={RED} strokeWidth={2} dot={<EntryDot />} />
+              connectNulls across. No per-day dots: with daily granularity that
+              is a dot for every single day in the history, which reads as
+              noise rather than signal. activeDot (recharts' default) still
+              marks the point under a finger while dragging across the line. */}
+          <Line type="monotone" dataKey="fireRate" stroke={RED} strokeWidth={2} dot={false} />
         </LineChart>
       </ResponsiveContainer>
     </ChartCard>
