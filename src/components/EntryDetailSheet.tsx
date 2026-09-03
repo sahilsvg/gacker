@@ -57,7 +57,11 @@ const EntryDetailSheet = ({ dateKey, entry, onClose }: Props) => {
           </button>
         </div>
 
-        <div ref={scrollRef} className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
+        {/* overscroll-contain stops the drag from chaining to the page behind
+            the sheet once this list hits its own top/bottom — without it, iOS
+            hands the rest of the gesture to the next scrollable ancestor,
+            which scrolls the profile underneath. */}
+        <div ref={scrollRef} className="overflow-y-auto overscroll-contain flex-1 px-5 py-4 space-y-4">
           {/* Status */}
           <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold ${
             entry.clean ? 'bg-clean/15 text-clean' : 'bg-red/15 text-red'
