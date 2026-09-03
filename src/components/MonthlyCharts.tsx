@@ -59,14 +59,19 @@ export const FireRateChart = ({ data }: { data: CumulativeFireRatePoint[] }) => 
   return (
     <ChartCard title="Fire Rate Over Time" subtitle="Your overall fire rate, as it stood on each day">
       <ResponsiveContainer>
-        <LineChart data={data} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+        <LineChart data={data} margin={{ top: 4, right: 8, left: 4, bottom: 0 }}>
           <CartesianGrid vertical={false} stroke={BORDER} strokeDasharray="3 3" />
           <XAxis dataKey="label" {...axisProps} interval={tickInterval} />
           {/* Explicit ticks rather than recharts' auto-generated ones: against a
               fixed [0,100] domain with a tightly clustered dataset (fire rates
               usually sit in a narrow band), auto tick placement produced
-              garbled, repeating labels at this chart's height. */}
-          <YAxis {...axisProps} domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} tickFormatter={v => `${v}%`} width={40} />
+              garbled, repeating labels at this chart's height. width is sized
+              with real headroom above "100%", the longest label -- the
+              previous attempt (a negative chart margin pulling the axis past
+              the SVG's own left edge, paired with a tight width) clipped the
+              leading digit off every label past single digits, e.g. "25%"
+              rendered as just "5%". */}
+          <YAxis {...axisProps} domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} tickFormatter={v => `${v}%`} width={44} />
           <Tooltip content={<ChartTooltip suffix="%" />} cursor={{ stroke: BORDER }} />
           {/* Every point has a real value now (today's running rate carried
               through gap days), so the line is always continuous -- nothing to
@@ -84,10 +89,13 @@ export const FireRateChart = ({ data }: { data: CumulativeFireRatePoint[] }) => 
 export const GoonsPerMonthChart = ({ data }: { data: MonthlyStats[] }) => (
   <ChartCard title="Goons Per Month" subtitle="Red days logged, by month.">
     <ResponsiveContainer>
-      <BarChart data={data} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+      <BarChart data={data} margin={{ top: 4, right: 8, left: 4, bottom: 0 }}>
         <CartesianGrid vertical={false} stroke={BORDER} strokeDasharray="3 3" />
         <XAxis dataKey="label" {...axisProps} />
-        <YAxis {...axisProps} allowDecimals={false} width={28} />
+        {/* Same clipping issue as the Fire Rate chart's YAxis: a negative chart
+            margin pulling the axis past the SVG's own left edge, paired with
+            too-tight a width, cut the leading digit off any two-digit count. */}
+        <YAxis {...axisProps} allowDecimals={false} width={30} />
         <Tooltip content={<ChartTooltip suffix="" />} cursor={{ fill: BORDER, opacity: 0.3 }} />
         <Bar dataKey="redDays" fill={RED} radius={[4, 4, 0, 0]} maxBarSize={28} />
       </BarChart>
