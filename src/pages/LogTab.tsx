@@ -378,7 +378,7 @@ const LogTab = ({ resetKey: _, isActive }: { resetKey: number; isActive?: boolea
                 placeholder="Anything to note about today…"
                 rows={4}
                 maxLength={2000}
-                className="w-full bg-card border border-border rounded-2xl px-4 py-3 text-foreground text-sm resize-none focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
+                className="w-full bg-card border border-border rounded-2xl px-4 py-3 text-foreground text-sm resize-none focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground font-sf-pro"
               />
               {/* @mention autocomplete */}
               {mentionSuggestions.length > 0 && (
