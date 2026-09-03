@@ -20,7 +20,7 @@ const buildMonth = (year: number, month: number): Date[] => {
 const LAUNCH_DATE = new Date(2026, 5, 27);
 LAUNCH_DATE.setHours(0, 0, 0, 0);
 
-const MonthGrid = ({
+const MonthGrid = React.memo(({
   year, month, entries, onDayTap,
 }: {
   year: number;
@@ -86,7 +86,8 @@ const MonthGrid = ({
       </div>
     </div>
   );
-};
+});
+MonthGrid.displayName = 'MonthGrid';
 
 const CalendarView = ({ entries, onDayTap }: Props) => {
   const now = new Date();
@@ -108,11 +109,10 @@ const CalendarView = ({ entries, onDayTap }: Props) => {
     nextDate.getFullYear() < now.getFullYear() ||
     (nextDate.getFullYear() === now.getFullYear() && nextDate.getMonth() <= now.getMonth());
 
-  // Set initial track position on mount
+  // Set initial track position on mount. Percentage rather than px: this can
+  // run before layout (the tab mounts hidden), when offsetWidth is still 0.
   useEffect(() => {
-    if (trackRef.current) {
-      trackRef.current.style.transform = 'translateX(-33.333%)';
-    }
+    if (trackRef.current) trackRef.current.style.transform = 'translateX(-33.3333%)';
   }, []);
 
   // Gesture handling — registers once, uses refs for live boundary values
@@ -123,19 +123,29 @@ const CalendarView = ({ entries, onDayTap }: Props) => {
 
     let startX = 0, startY = 0;
     let determined = false, isHoriz = false;
+    // Velocity, so a quick flick turns the month over without a long drag.
+    let lastX = 0, lastT = 0, vx = 0;
+
+    // Panel width in px, so every frame is a plain translate3d the compositor
+    // can handle without touching layout.
+    const panelW = () => wrapper.offsetWidth;
 
     const setX = (xPx: number, animated: boolean) => {
       track.style.transition = animated
-        ? 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+        ? 'transform 300ms cubic-bezier(0.22, 0.61, 0.36, 1)'
         : 'none';
-      track.style.transform = `translateX(calc(-33.333% + ${xPx}px))`;
+      track.style.transform = `translate3d(${-panelW() + xPx}px,0,0)`;
     };
 
     const onStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
       determined = false;
       isHoriz = false;
+      lastX = startX;
+      lastT = performance.now();
+      vx = 0;
       track.style.transition = 'none';
     };
 
@@ -151,7 +161,14 @@ const CalendarView = ({ entries, onDayTap }: Props) => {
         return;
       }
       if (!isHoriz) return;
+      // Axis lock — the page must not scroll under a horizontal drag.
       e.preventDefault();
+
+      const now = performance.now();
+      const dt = now - lastT;
+      if (dt > 0) vx = (e.touches[0].clientX - lastX) / dt;
+      lastX = e.touches[0].clientX;
+      lastT = now;
 
       const W = wrapper.offsetWidth;
       const atBoundary =
@@ -171,24 +188,29 @@ const CalendarView = ({ entries, onDayTap }: Props) => {
       const dx = e.changedTouches[0].clientX - startX;
       const W = wrapper.offsetWidth;
 
-      if (dx > W / 4 && canGoPrevRef.current) {
-        setX(W, true);
-        setTimeout(() => {
-          setMonthOffset(o => o - 1);
+      const flicked = Math.abs(vx) > 0.45;
+      const goPrev = (dx > W / 4 || (flicked && vx > 0)) && canGoPrevRef.current;
+      const goNext = (dx < -(W / 4) || (flicked && vx < 0)) && canGoNextRef.current;
+
+      const settle = (delta: number, step: number) => {
+        setX(delta, true);
+        let finished = false;
+        const done = () => {
+          if (finished) return;
+          finished = true;
+          track.removeEventListener('transitionend', done);
+          setMonthOffset(o => o + step);
           track.style.transition = 'none';
-          track.style.transform = 'translateX(-33.333%)';
-        }, 310);
-      } else if (dx < -(W / 4) && canGoNextRef.current) {
-        setX(-W, true);
-        setTimeout(() => {
-          setMonthOffset(o => o + 1);
-          track.style.transition = 'none';
-          track.style.transform = 'translateX(-33.333%)';
-        }, 310);
-      } else {
-        // Bounce back
-        setX(0, true);
-      }
+          track.style.transform = 'translateX(-33.3333%)';
+        };
+        track.addEventListener('transitionend', done);
+        // transitionend never fires if the transform happens not to change.
+        window.setTimeout(done, 360);
+      };
+
+      if (goPrev) settle(W, -1);
+      else if (goNext) settle(-W, 1);
+      else setX(0, true);
     };
 
     wrapper.addEventListener('touchstart', onStart, { passive: true });
@@ -217,7 +239,12 @@ const CalendarView = ({ entries, onDayTap }: Props) => {
     >
       <div
         ref={trackRef}
-        style={{ display: 'flex', width: '300%', willChange: 'transform' }}
+        style={{
+          display: 'flex',
+          width: '300%',
+          willChange: 'transform',
+          backfaceVisibility: 'hidden',
+        }}
       >
         {[prevDate, currDate, nextDate].map((d, i) => (
           <div key={i} style={{ width: '33.333%', flexShrink: 0, boxSizing: 'border-box', padding: '0 2px' }}>
