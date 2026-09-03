@@ -161,3 +161,71 @@ export const computeMonthlyStats = (entries: Record<string, Entry>): MonthlyStat
 
   return months;
 };
+
+export interface CumulativeFireRatePoint {
+  /** "2026-09-05" */
+  date: string;
+  /** "Sep 5", for chart axes */
+  label: string;
+  /** Percentage: all red entries through this day / all entries through this
+   *  day. Never null -- on a day with nothing logged, this repeats the last
+   *  value rather than being undefined, so the line reads as flat rather than
+   *  broken during a gap. */
+  fireRate: number;
+  /** Whether this specific calendar day had an entry, vs. carrying a prior
+   *  day's value forward. Used to draw a dot only on days actually logged. */
+  hasEntry: boolean;
+}
+
+/**
+ * Cumulative fire rate as it stood on each calendar day from the first entry
+ * through today -- the same running number the FIRE RATE stat card shows,
+ * evaluated at every point along the way rather than only at the end.
+ *
+ * One point per calendar day, not per logged day: a category axis spaces
+ * points evenly regardless of the real gap between them, so skipping straight
+ * from logged day to logged day would make a 1-day gap and a 3-week gap look
+ * identical. Filling every day keeps the axis time-proportional and turns a
+ * gap into a visible flat stretch instead of a misrepresented non-event.
+ *
+ * The ratio itself only ever moves on a day with an entry -- an unlogged day
+ * neither counts toward it nor against it, same convention as the streak.
+ */
+export const computeCumulativeFireRate = (entries: Record<string, Entry>): CumulativeFireRatePoint[] => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const validKeys = Object.keys(entries)
+    .filter(key => {
+      const [y, m, d] = key.split('-').map(Number);
+      return new Date(y, m - 1, d) <= today;
+    })
+    .sort();
+
+  if (validKeys.length === 0) return [];
+
+  const [startY, startM, startD] = validKeys[0].split('-').map(Number);
+  const cursor = new Date(startY, startM - 1, startD);
+
+  let clean = 0;
+  let red = 0;
+  const points: CumulativeFireRatePoint[] = [];
+
+  while (cursor <= today) {
+    const key = formatDateKey(cursor);
+    const entry = entries[key];
+    const hasEntry = !!entry;
+    if (entry) { if (entry.clean) clean++; else red++; }
+
+    const total = clean + red;
+    points.push({
+      date: key,
+      label: cursor.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      fireRate: total > 0 ? Math.round((red / total) * 1000) / 10 : 0,
+      hasEntry,
+    });
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return points;
+};

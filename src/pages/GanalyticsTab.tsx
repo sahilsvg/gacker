@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { Target, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchEntries, computeStats, computeMonthlyStats, Entry } from '@/lib/entries';
+import { fetchEntries, computeStats, computeMonthlyStats, computeCumulativeFireRate, Entry } from '@/lib/entries';
 import { FireRateChart, GoonsPerMonthChart } from '@/components/MonthlyCharts';
 import { supabase } from '@/integrations/supabase/client';
 import { haptic } from '@/lib/haptics';
@@ -343,6 +343,7 @@ const GanalyticsTab = ({ resetKey: _, isActive }: { resetKey: number; isActive?:
   const total = cleanDays + redDays;
   const fireRate = total > 0 ? Math.round((redDays / total) * 100) : 0;
   const monthlyStats = computeMonthlyStats(entries);
+  const cumulativeFireRate = computeCumulativeFireRate(entries);
 
   const handleSaveGoal = async (days: number) => {
     if (!user) return;
@@ -474,12 +475,13 @@ const GanalyticsTab = ({ resetKey: _, isActive }: { resetKey: number; isActive?:
             </div>
           )}
 
-          {/* Two trend charts, only once there is more than one month of
-              history to actually show a trend. */}
-          {monthlyStats.length > 1 && (
+          {/* Two trend charts, each gated on its own dataset -- fire rate is
+              daily now, months is still monthly, so "enough history to show
+              a trend" is a different bar for each. */}
+          {(cumulativeFireRate.length > 1 || monthlyStats.length > 1) && (
             <div className="space-y-4 mt-6">
-              <FireRateChart data={monthlyStats} />
-              <GoonsPerMonthChart data={monthlyStats} />
+              {cumulativeFireRate.length > 1 && <FireRateChart data={cumulativeFireRate} />}
+              {monthlyStats.length > 1 && <GoonsPerMonthChart data={monthlyStats} />}
             </div>
           )}
 

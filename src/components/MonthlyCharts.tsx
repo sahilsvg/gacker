@@ -4,7 +4,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, TooltipProps,
 } from 'recharts';
 import { ValueType, NameType } from 'recharts/types/component/DefaultTooltipContent';
-import { MonthlyStats } from '@/lib/entries';
+import { MonthlyStats, CumulativeFireRatePoint } from '@/lib/entries';
 
 // hsl(var(--x)) rather than a Tailwind class: recharts needs a literal CSS
 // color value for stroke/fill, not a className.
@@ -43,34 +43,55 @@ const ChartCard = ({ title, subtitle, children }: { title: string; subtitle: str
   </div>
 );
 
-export const FireRateChart = ({ data }: { data: MonthlyStats[] }) => (
-  <ChartCard title="Fire Rate Over Time" subtitle="Red days as a share of days logged, by month">
-    <ResponsiveContainer>
-      <LineChart data={data} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-        <CartesianGrid vertical={false} stroke={BORDER} strokeDasharray="3 3" />
-        <XAxis dataKey="label" {...axisProps} />
-        {/* Explicit ticks rather than recharts' auto-generated ones: against a
-            fixed [0,100] domain with a tightly clustered dataset (fire rates
-            usually sit in a narrow band), auto tick placement produced
-            garbled, repeating labels at this chart's height. */}
-        <YAxis {...axisProps} domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} tickFormatter={v => `${v}%`} width={40} />
-        <Tooltip content={<ChartTooltip suffix="%" />} cursor={{ stroke: BORDER }} />
-        {/* connectNulls=false: a month with nothing logged is a gap, not 0%. */}
-        <Line
-          type="monotone"
-          dataKey="fireRate"
-          stroke={RED}
-          strokeWidth={2}
-          dot={{ r: 3, fill: RED, strokeWidth: 0 }}
-          connectNulls={false}
-        />
-      </LineChart>
-    </ResponsiveContainer>
-  </ChartCard>
-);
+// Only the days actually logged get a dot; the days in between are still real
+// points (carrying the running value forward), but marking every one of them
+// would turn a several-month history into a solid row of dots. The gap
+// between two dots is exactly the flat stretch a skipped run of days produces.
+//
+// recharts' dot render prop must return a real SVG element, not null -- an
+// invisible circle (r=0) rather than an empty Fragment satisfies that.
+interface DotRenderProps {
+  cx?: number;
+  cy?: number;
+  payload?: { hasEntry: boolean };
+}
+
+const EntryDot = ({ cx, cy, payload }: DotRenderProps) => {
+  if (!payload?.hasEntry || cx === undefined || cy === undefined) {
+    return <circle cx={cx ?? 0} cy={cy ?? 0} r={0} fill="none" />;
+  }
+  return <circle cx={cx} cy={cy} r={3} fill={RED} />;
+};
+
+export const FireRateChart = ({ data }: { data: CumulativeFireRatePoint[] }) => {
+  // Thin the axis labels to roughly six regardless of how many days are in
+  // the dataset -- the data itself stays daily, only the printed ticks skip.
+  const tickInterval = Math.max(0, Math.ceil(data.length / 6) - 1);
+
+  return (
+    <ChartCard title="Fire Rate Over Time" subtitle="Your overall fire rate, as it stood on each day">
+      <ResponsiveContainer>
+        <LineChart data={data} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+          <CartesianGrid vertical={false} stroke={BORDER} strokeDasharray="3 3" />
+          <XAxis dataKey="label" {...axisProps} interval={tickInterval} />
+          {/* Explicit ticks rather than recharts' auto-generated ones: against a
+              fixed [0,100] domain with a tightly clustered dataset (fire rates
+              usually sit in a narrow band), auto tick placement produced
+              garbled, repeating labels at this chart's height. */}
+          <YAxis {...axisProps} domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} tickFormatter={v => `${v}%`} width={40} />
+          <Tooltip content={<ChartTooltip suffix="%" />} cursor={{ stroke: BORDER }} />
+          {/* Every point has a real value now (today's running rate carried
+              through gap days), so the line is always continuous -- nothing to
+              connectNulls across. */}
+          <Line type="monotone" dataKey="fireRate" stroke={RED} strokeWidth={2} dot={<EntryDot />} />
+        </LineChart>
+      </ResponsiveContainer>
+    </ChartCard>
+  );
+};
 
 export const GoonsPerMonthChart = ({ data }: { data: MonthlyStats[] }) => (
-  <ChartCard title="Goons/Mo Over Time" subtitle="Red days logged, by month">
+  <ChartCard title="Goons Per Month" subtitle="Red days logged, by month.">
     <ResponsiveContainer>
       <BarChart data={data} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
         <CartesianGrid vertical={false} stroke={BORDER} strokeDasharray="3 3" />
