@@ -365,7 +365,7 @@ const GanalyticsTab = ({ resetKey: _, isActive }: { resetKey: number; isActive?:
           <div className="flex items-end justify-between mb-8">
             <div>
               <h1 className="font-wordmark text-5xl text-foreground mb-1">Ganalytics</h1>
-              <p className="text-muted-foreground text-sm font-medium">Your performance, laid bare.</p>
+              <p className="text-muted-foreground text-sm font-medium">The numbers.</p>
             </div>
             <button
               onPointerDown={e => { e.preventDefault(); haptic.light(); setShowPicker(true); }}
