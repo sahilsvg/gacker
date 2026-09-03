@@ -312,6 +312,10 @@ const GanalyticsTab = ({ resetKey: _, isActive }: { resetKey: number; isActive?:
   const [justCompleted, setJustCompleted] = useState<number | null>(null);
   const [goalError, setGoalError] = useState<string | null>(null);
   const [showPicker, setShowPicker] = useState(false);
+  // Shared by both entry points into the goal picker (the header pill and the
+  // empty-state card button), so a scroll that ends over either one cannot
+  // open the sheet by accident.
+  const openPickerTap = useTap(() => { haptic.light(); setShowPicker(true); });
 
   // Increment animKey each time tab becomes active → forces animation replay
   const [animKey, setAnimKey] = useState(0);
@@ -371,7 +375,7 @@ const GanalyticsTab = ({ resetKey: _, isActive }: { resetKey: number; isActive?:
               <p className="text-muted-foreground text-sm font-medium">The numbers.</p>
             </div>
             <button
-              onPointerDown={e => { e.preventDefault(); haptic.light(); setShowPicker(true); }}
+              {...openPickerTap.props}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-card border border-border text-sm font-medium text-foreground active:opacity-60 transition-opacity flex-shrink-0"
             >
               <Target size={14} className="text-clean" />
@@ -430,7 +434,7 @@ const GanalyticsTab = ({ resetKey: _, isActive }: { resetKey: number; isActive?:
                 </>
               )}
               <button
-                onPointerDown={e => { e.preventDefault(); haptic.light(); setShowPicker(true); }}
+                {...openPickerTap.props}
                 className="px-5 h-11 rounded-xl bg-clean text-clean-foreground font-semibold text-sm active:scale-95 transition-all"
               >
                 {justCompleted !== null ? 'Set next goal' : 'Set a goal'}
