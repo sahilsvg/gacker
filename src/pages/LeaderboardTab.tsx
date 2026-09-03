@@ -92,7 +92,7 @@ const LeaderboardTab = ({ isActive, resetKey }: Props) => {
         <div className="px-5 pt-6 pb-6">
           <h1 className="font-wordmark text-5xl text-foreground mb-1">Leaderboard</h1>
           <p className="text-muted-foreground text-sm font-medium mb-6">
-            Lowest fire rate wins.
+            Lowest fire rate wins. 14+ days logged to qualify.
           </p>
 
           {loading && (

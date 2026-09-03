@@ -12,7 +12,7 @@ interface Props {
 const tabs: { id: Tab; icon: React.ReactNode; label: string }[] = [
   { id: 'log', icon: <Plus size={22} strokeWidth={2.5} />, label: 'Log' },
   { id: 'feed', icon: <Users size={22} />, label: 'Feed' },
-  { id: 'leaderboard', icon: <Crown size={22} />, label: 'Rank' },
+  { id: 'leaderboard', icon: <Crown size={22} />, label: 'Ranked' },
   { id: 'ganalytics', icon: <BarChart2 size={22} />, label: 'Ganalytics' },
   { id: 'profile', icon: <User size={22} />, label: 'Profile' },
 ];
