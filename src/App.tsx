@@ -20,6 +20,7 @@ import ProfileSetup from '@/pages/auth/ProfileSetup';
 import WelcomeBack from '@/pages/auth/WelcomeBack';
 import LogTab from '@/pages/LogTab';
 import FeedTab from '@/pages/FeedTab';
+import LeaderboardTab from '@/pages/LeaderboardTab';
 import GanalyticsTab from '@/pages/GanalyticsTab';
 import ProfileTab from '@/pages/ProfileTab';
 
@@ -33,7 +34,7 @@ const AppShell = () => {
   const { user, profile, loading } = useAuth();
   const [splashDone, setSplashDone] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('log');
-  const [resetKeys, setResetKeys] = useState<Record<Tab, number>>({ log: 0, feed: 0, ganalytics: 0, profile: 0 });
+  const [resetKeys, setResetKeys] = useState<Record<Tab, number>>({ log: 0, feed: 0, leaderboard: 0, ganalytics: 0, profile: 0 });
   const [authStep, setAuthStep] = useState<AuthStep>('phone');
   const [pendingPhone, setPendingPhone] = useState('');
   const [showWelcome, setShowWelcome] = useState(false);
@@ -126,6 +127,9 @@ const AppShell = () => {
         </div>
         <div key={`feed-${resetKeys.feed}`} className={activeTab === 'feed' ? 'block h-full animate-tab-enter' : 'hidden'}>
           <FeedTab isActive={activeTab === 'feed'} resetKey={resetKeys.feed} />
+        </div>
+        <div key={`leaderboard-${resetKeys.leaderboard}`} className={activeTab === 'leaderboard' ? 'block h-full animate-tab-enter' : 'hidden'}>
+          <LeaderboardTab isActive={activeTab === 'leaderboard'} resetKey={resetKeys.leaderboard} />
         </div>
         <div key={`ganalytics-${resetKeys.ganalytics}`} className={activeTab === 'ganalytics' ? 'block h-full animate-tab-enter' : 'hidden'}>
           <GanalyticsTab resetKey={resetKeys.ganalytics} isActive={activeTab === 'ganalytics'} />

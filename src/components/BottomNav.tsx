@@ -1,8 +1,8 @@
 import React from 'react';
-import { Plus, Users, BarChart2, User } from 'lucide-react';
+import { Plus, Users, Crown, BarChart2, User } from 'lucide-react';
 import { haptic } from '@/lib/haptics';
 
-export type Tab = 'log' | 'feed' | 'ganalytics' | 'profile';
+export type Tab = 'log' | 'feed' | 'leaderboard' | 'ganalytics' | 'profile';
 
 interface Props {
   active: Tab;
@@ -12,6 +12,7 @@ interface Props {
 const tabs: { id: Tab; icon: React.ReactNode; label: string }[] = [
   { id: 'log', icon: <Plus size={22} strokeWidth={2.5} />, label: 'Log' },
   { id: 'feed', icon: <Users size={22} />, label: 'Feed' },
+  { id: 'leaderboard', icon: <Crown size={22} />, label: 'Rank' },
   { id: 'ganalytics', icon: <BarChart2 size={22} />, label: 'Ganalytics' },
   { id: 'profile', icon: <User size={22} />, label: 'Profile' },
 ];
